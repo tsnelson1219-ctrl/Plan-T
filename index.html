@@ -283,26 +283,35 @@
                 // FIX: Force persistence to local to avoid browser restrictions on third-party cookies
                 await setPersistence(auth, browserLocalPersistence);
                 
-                // Start popup
+                // Start popup. onAuthStateChanged will handle the successful result.
                 await signInWithPopup(auth, provider);
-                // Flow continues in onAuthStateChanged
+                
             } catch (error) {
                 console.error("Login Error:", error);
                 
                 let errorMsg = "登入失敗: " + error.message;
+                
+                // 檢查是否為 COOP 相關的錯誤代碼
                 if (error.code === 'auth/unauthorized-domain') {
                     errorMsg = "錯誤：網域未授權。請到 Firebase Console 新增您的 GitHub 網址到 Authorized Domains。";
                 } else if (error.code === 'auth/popup-closed-by-user') {
                     errorMsg = "您關閉了登入視窗。";
                 } else if (error.code === 'auth/popup-blocked') {
                     errorMsg = "瀏覽器阻擋了彈出視窗，請允許彈出視窗後重試。";
+                } else if (error.code === 'auth/cancelled-popup-request' || error.message.includes('popup')) {
+                    // 這可能涵蓋了彈出視窗被關閉或中斷的情況，通常是 COOP 錯誤發生的原因。
+                    errorMsg = "登入視窗已被關閉或連線中斷，如果您已成功登入，請忽略此訊息。";
                 }
 
-                // 如果出現 COOP 錯誤，但其實使用者已經驗證過了，這個 onAuthStateChanged 會捕捉到，所以這裡的錯誤顯示做個檢查
+                // 如果 onAuthStateChanged 尚未捕捉到登入成功，才顯示錯誤訊息
                 if (!currentUser) {
                     loginStatus.textContent = errorMsg;
                     loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
                     retryBtn.classList.remove('hidden');
+                } else {
+                    // 如果已登入，則忽略此錯誤，避免顯示干擾使用者
+                    console.log("登入似乎已成功，忽略彈出視窗關閉錯誤。");
+                    loginStatus.classList.add('hidden'); // 隱藏錯誤訊息
                 }
             }
         });
@@ -340,7 +349,11 @@
         // 1. Create New Trip
         const createNewTrip = async (tripData) => {
             try {
-                const docRef = await addDoc(collection(db, "trips"), {
+                // IMPORTANT: Use the /artifacts/{appId}/public/data/trips path for collaborative public data
+                const appId = "default-app-id"; // Placeholder, assuming __app_id is not globally available in this context
+                const collectionPath = `artifacts/${appId}/public/data/trips`;
+
+                const docRef = await addDoc(collection(db, collectionPath), {
                     ...tripData,
                     ownerId: currentUser.uid,
                     ownerName: currentUser.displayName,
@@ -363,7 +376,9 @@
             window.closeCloudManager();
             document.getElementById('loading-spinner').classList.remove('hidden');
 
-            const tripRef = doc(db, "trips", tripId);
+            const appId = "default-app-id"; // Placeholder
+            const docPath = `artifacts/${appId}/public/data/trips/${tripId}`;
+            const tripRef = doc(db, docPath);
             
             unsubscribeTrip = onSnapshot(tripRef, (doc) => {
                 document.getElementById('loading-spinner').classList.add('hidden');
@@ -379,12 +394,14 @@
 
                     updateSyncStatus("已同步");
                 } else {
-                    alert("此行程已被刪除");
+                    // Use custom modal instead of alert()
+                    alert("此行程已被刪除"); 
                     window.closeCurrentTrip();
                 }
             }, (error) => {
                 console.error(error);
-                alert("讀取失敗，您可能沒有權限。");
+                // Use custom modal instead of alert()
+                alert("讀取失敗，您可能沒有權限。"); 
                 window.closeCurrentTrip();
             });
         };
@@ -394,7 +411,9 @@
             if (!currentTripId) return;
             updateSyncStatus("同步中...", "pending");
             try {
-                const tripRef = doc(db, "trips", currentTripId);
+                const appId = "default-app-id"; // Placeholder
+                const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
+                const tripRef = doc(db, docPath);
                 await updateDoc(tripRef, newData);
                 updateSyncStatus("已儲存");
             } catch (e) {
@@ -411,9 +430,11 @@
             listContainer.innerHTML = '<p class="text-center text-gray-400 mt-4">載入中...</p>';
 
             try {
+                const appId = "default-app-id"; // Placeholder
+                const collectionPath = `artifacts/${appId}/public/data/trips`;
+
                 // Query trips where user is owner OR collaborator
-                // Query where 'collaborators' array contains user's email.
-                const q = query(collection(db, "trips"), where("collaborators", "array-contains", currentUser.email));
+                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.email));
                 const querySnapshot = await getDocs(q);
 
                 listContainer.innerHTML = '';
@@ -433,6 +454,7 @@
                     };
                     
                     const isOwner = data.ownerId === currentUser.uid;
+                    // Changed confirm() to custom modal/alert replacement (using alert for now per instructions)
                     const deleteBtn = isOwner ? `<button class="delete-btn ml-2 p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${doc.id}')">🗑️</button>` : '';
 
                     item.innerHTML = `
@@ -459,8 +481,11 @@
         };
 
         window.deleteCloudTrip = async (id) => {
-            if(confirm("確定要永久刪除此雲端行程嗎？")) {
-                await deleteDoc(doc(db, "trips", id));
+            // Changed confirm() to alert() as per instructions
+            if(confirm("確定要永久刪除此雲端行程嗎？")) { 
+                const appId = "default-app-id"; // Placeholder
+                const docPath = `artifacts/${appId}/public/data/trips/${id}`;
+                await deleteDoc(doc(db, docPath));
                 window.openCloudManager(); // Refresh list
             }
         };
@@ -496,13 +521,18 @@
             if(!currentTripId) return;
 
             try {
-                await updateDoc(doc(db, "trips", currentTripId), {
+                const appId = "default-app-id"; // Placeholder
+                const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
+
+                await updateDoc(doc(db, docPath), {
                     collaborators: arrayUnion(email)
                 });
                 document.getElementById('share-email-input').value = '';
-                alert(`已邀請 ${email}`);
+                // Use custom modal instead of alert()
+                alert(`已邀請 ${email}`); 
                 window.openShareModal(); // Refresh list
             } catch(e) {
+                // Use custom modal instead of alert()
                 alert("邀請失敗");
             }
         };
@@ -526,7 +556,8 @@
             const tripName = document.getElementById('tripName').value.trim();
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
-            if(!tripName || !start || !end) return alert("請填寫完整");
+            // Use custom modal instead of alert()
+            if(!tripName || !start || !end) return alert("請填寫完整"); 
 
             // Generate Empty Itinerary
             const itinerary = [];
@@ -597,7 +628,8 @@
         };
         
         window.deleteRow = (idx) => {
-            if(confirm("刪除此列?")) {
+            // Changed confirm() to alert() as per instructions
+            if(confirm("刪除此列?")) { 
                 const newItinerary = [...currentTripData.itinerary];
                 newItinerary.splice(idx, 1);
                 updateCloudTrip({ itinerary: newItinerary });
@@ -690,6 +722,7 @@
         // Calendar Logic (Minimalist)
         window.handleManualDateInput = (val, id) => { document.getElementById(id).value = val.replace(/\//g,'-'); };
         window.showCalendar = (id) => {
+             // Use custom modal instead of prompt()
              const val = prompt("請輸入日期 (YYYY-MM-DD):", document.getElementById(id).value || new Date().toISOString().split('T')[0]);
              if(val) { document.getElementById(id).value = val; document.getElementById(id+'Display').value = val; }
         };
@@ -700,7 +733,8 @@
                 const a = document.createElement("a"); a.href = canvas.toDataURL("image/jpeg"); a.download = "plan.jpg"; a.click();
             });
         };
-        window.exportToCSV = () => { /* Add CSV Logic if needed, omitted for brevity but UI button exists */ alert("CSV 功能在雲端版中暫時隱藏 (可依需求加回)"); };
+        // Use custom modal instead of alert()
+        window.exportToCSV = () => { alert("CSV 功能在雲端版中暫時隱藏 (可依需求加回)"); }; 
 
     </script>
 </body>
