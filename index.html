@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.1)</title>
+    <title>Plan-T (Cloud v1.2)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -34,7 +34,15 @@
     <!-- 登入畫面 -->
     <div id="login-overlay">
         <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
-             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="6" y="2" width="16" height="18" rx="2" ry="2"></rect><path d="M10 2v4a2 0 0 0 2 2h4a2 0 0 0 2-2V2"></path><line x1="2" y1="13" x2="6" y2="13"></line><line x1="2" y1="9" x2="6" y2="9"></line><path d="M2 5v14a2 0 0 0 2 2h14"></path></svg>
+            <!-- 修正後的 SVG Icon，解決 path d error -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
+                <path d="M16 2v20"></path>
+                <path d="M2 6h4"></path>
+                <path d="M2 10h4"></path>
+                <path d="M2 14h4"></path>
+                <path d="M2 18h4"></path>
+                <rect width="16" height="20" x="4" y="2" rx="2"></rect>
+            </svg>
             Plan-T 雲端版
         </h1>
         <p class="text-gray-600 mb-8">請登入以存取您的雲端行程</p>
@@ -290,9 +298,12 @@
                     errorMsg = "瀏覽器阻擋了彈出視窗，請允許彈出視窗後重試。";
                 }
 
-                loginStatus.textContent = errorMsg;
-                loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
-                retryBtn.classList.remove('hidden');
+                // 如果出現 COOP 錯誤，但其實使用者已經驗證過了，這個 onAuthStateChanged 會捕捉到，所以這裡的錯誤顯示做個檢查
+                if (!currentUser) {
+                    loginStatus.textContent = errorMsg;
+                    loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
+                    retryBtn.classList.remove('hidden');
+                }
             }
         });
 
@@ -304,6 +315,7 @@
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                console.log("Auth State Changed: Logged In", user.email);
                 currentUser = user;
                 loginOverlay.classList.add('hidden');
                 appContainer.classList.remove('hidden');
@@ -316,6 +328,7 @@
                 // Load initial view
                 window.openCloudManager();
             } else {
+                console.log("Auth State Changed: Logged Out");
                 currentUser = null;
                 // Don't show overlay immediately if we were just loading, handled by UI state
             }
