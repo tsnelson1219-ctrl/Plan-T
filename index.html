@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1)</title>
+    <title>Plan-T (Cloud v1.1)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -42,7 +42,8 @@
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
             使用 Google 帳號登入
         </button>
-        <p id="login-status" class="mt-4 text-sm text-gray-500 hidden">正在連線...</p>
+        <p id="login-status" class="mt-4 text-sm text-red-500 font-bold hidden"></p>
+        <button id="retry-btn" class="mt-2 text-sm text-blue-500 underline hidden" onclick="location.reload()">重新整理頁面</button>
     </div>
 
     <!-- 主容器 (登入後顯示) -->
@@ -232,7 +233,7 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
@@ -262,14 +263,36 @@
         const loginOverlay = document.getElementById('login-overlay');
         const appContainer = document.getElementById('app-container');
         const loginStatus = document.getElementById('login-status');
+        const retryBtn = document.getElementById('retry-btn');
 
         document.getElementById('google-login-btn').addEventListener('click', async () => {
             try {
+                loginStatus.textContent = "正在連線到 Google...";
                 loginStatus.classList.remove('hidden');
+                loginStatus.className = "mt-4 text-sm text-gray-500 font-bold";
+                retryBtn.classList.add('hidden');
+
+                // FIX: Force persistence to local to avoid browser restrictions on third-party cookies
+                await setPersistence(auth, browserLocalPersistence);
+                
+                // Start popup
                 await signInWithPopup(auth, provider);
+                // Flow continues in onAuthStateChanged
             } catch (error) {
-                alert("登入失敗: " + error.message);
-                loginStatus.classList.add('hidden');
+                console.error("Login Error:", error);
+                
+                let errorMsg = "登入失敗: " + error.message;
+                if (error.code === 'auth/unauthorized-domain') {
+                    errorMsg = "錯誤：網域未授權。請到 Firebase Console 新增您的 GitHub 網址到 Authorized Domains。";
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    errorMsg = "您關閉了登入視窗。";
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMsg = "瀏覽器阻擋了彈出視窗，請允許彈出視窗後重試。";
+                }
+
+                loginStatus.textContent = errorMsg;
+                loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
+                retryBtn.classList.remove('hidden');
             }
         });
 
@@ -294,8 +317,7 @@
                 window.openCloudManager();
             } else {
                 currentUser = null;
-                loginOverlay.classList.remove('hidden');
-                appContainer.classList.add('hidden');
+                // Don't show overlay immediately if we were just loading, handled by UI state
             }
         });
 
