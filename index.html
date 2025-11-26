@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.2)</title>
+    <title>Plan-T (Cloud v1.3)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -34,7 +34,7 @@
     <!-- 登入畫面 -->
     <div id="login-overlay">
         <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
-            <!-- 修正後的 SVG Icon，解決 path d error -->
+            <!-- 修正後的 SVG Icon -->
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
                 <path d="M16 2v20"></path>
                 <path d="M2 6h4"></path>
@@ -315,7 +315,9 @@
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log("Auth State Changed: Logged In", user.email);
+                // *** IMPORTANT: This is the successful login detection. ***
+                console.log("--- 登入成功！--- Auth State Changed: Logged In", user.email);
+                
                 currentUser = user;
                 loginOverlay.classList.add('hidden');
                 appContainer.classList.remove('hidden');
@@ -330,7 +332,6 @@
             } else {
                 console.log("Auth State Changed: Logged Out");
                 currentUser = null;
-                // Don't show overlay immediately if we were just loading, handled by UI state
             }
         });
 
@@ -411,8 +412,7 @@
 
             try {
                 // Query trips where user is owner OR collaborator
-                // Firestore restriction: array-contains logic is simple. 
-                // We will query where 'collaborators' array contains user's email.
+                // Query where 'collaborators' array contains user's email.
                 const q = query(collection(db, "trips"), where("collaborators", "array-contains", currentUser.email));
                 const querySnapshot = await getDocs(q);
 
