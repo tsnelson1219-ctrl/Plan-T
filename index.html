@@ -31,10 +31,9 @@
 </head>
 <body class="min-h-screen">
 
-    <!-- 登入畫面 -->
+    <!-- 登入畫面 (現在改為自動登入載入畫面) -->
     <div id="login-overlay">
         <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
-            <!-- 修正後的 SVG Icon -->
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
                 <path d="M16 2v20"></path>
                 <path d="M2 6h4"></path>
@@ -45,13 +44,9 @@
             </svg>
             Plan-T 雲端版
         </h1>
-        <p class="text-gray-600 mb-8">請登入以存取您的雲端行程</p>
-        <button id="google-login-btn" class="flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
-            使用 Google 帳號登入
-        </button>
-        <p id="login-status" class="mt-4 text-sm text-red-500 font-bold hidden"></p>
-        <button id="retry-btn" class="mt-2 text-sm text-blue-500 underline hidden" onclick="location.reload()">重新整理頁面</button>
+        <p class="text-gray-600 mb-8">正在連線至雲端行程庫...</p>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <p id="login-status" class="mt-4 text-sm text-gray-500 font-bold"></p>
     </div>
 
     <!-- 主容器 (登入後顯示) -->
@@ -79,9 +74,11 @@
             <div class="w-full md:w-auto flex justify-end items-center gap-3">
                 <!-- 使用者資訊與登出 -->
                 <div class="flex items-center gap-2">
+                    <div id="user-avatar-placeholder" class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs">User</div>
                     <img id="user-avatar" src="" alt="User" class="w-8 h-8 rounded-full border border-gray-200 hidden">
                     <span id="user-name" class="text-sm font-medium text-gray-700 hidden md:inline"></span>
-                    <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded">登出</button>
+                    <!-- 隱藏登出按鈕，因為自動驗證不需要手動登出 -->
+                    <!-- <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded">登出</button> -->
                 </div>
             </div>
         </header>
@@ -201,7 +198,7 @@
                 <button onclick="window.closeCloudManager()" class="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <div class="p-4 bg-blue-50 text-sm text-gray-600">
-                點擊下方列表開啟行程。您可以與朋友分享行程 ID 或 Email 來協作。
+                點擊下方列表開啟行程。您可以與朋友分享 ID (您的 ID: <span id="my-user-id-display" class="font-mono bg-blue-100 px-1 rounded"></span>) 來協作。
             </div>
             <div id="cloud-list" class="flex-grow overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-[200px]">
                 <p class="text-center text-gray-400 mt-10">載入中...</p>
@@ -216,10 +213,10 @@
     <div id="share-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex justify-center items-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">邀請協作者</h3>
-            <p class="text-sm text-gray-600 mb-4">輸入對方的 Google Email，他就能在「雲端行程庫」看到並編輯此行程。</p>
+            <p class="text-sm text-gray-600 mb-4">輸入對方的 User ID (請對方在雲端行程庫查看 ID)。</p>
             
             <div class="flex gap-2 mb-4">
-                <input type="email" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="friend@gmail.com">
+                <input type="text" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="輸入 User ID">
                 <button onclick="window.addCollaborator()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">新增</button>
             </div>
 
@@ -241,11 +238,13 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // 修正：導入 signInWithCustomToken 和 signInAnonymously 
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
-        const firebaseConfig = {
+        // 注意：這裡使用環境變數 __firebase_config 如果存在，否則使用預設
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCQtd1FzIi79nzxBoYUwFMErzSqQ1ql6H8",
             authDomain: "plan-t-18056.firebaseapp.com",
             projectId: "plan-t-18056",
@@ -259,7 +258,9 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+        
+        // 取得目前的 App ID (如果環境有提供)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- Global State ---
         let currentUser = null;
@@ -267,74 +268,50 @@
         let currentTripData = null;
         let unsubscribeTrip = null; // Listener detacher
 
-        // --- Auth Logic ---
+        // --- Auth Logic (Updated for Immersive Environment) ---
         const loginOverlay = document.getElementById('login-overlay');
         const appContainer = document.getElementById('app-container');
         const loginStatus = document.getElementById('login-status');
-        const retryBtn = document.getElementById('retry-btn');
 
-        document.getElementById('google-login-btn').addEventListener('click', async () => {
+        // 自動執行環境驗證 (取代手動 Google 登入)
+        const initAuth = async () => {
             try {
-                loginStatus.textContent = "正在連線到 Google...";
-                loginStatus.classList.remove('hidden');
-                loginStatus.className = "mt-4 text-sm text-gray-500 font-bold";
-                retryBtn.classList.add('hidden');
-
-                // FIX: Force persistence to local to avoid browser restrictions on third-party cookies
-                await setPersistence(auth, browserLocalPersistence);
-                
-                // Start popup. onAuthStateChanged will handle the successful result.
-                await signInWithPopup(auth, provider);
-                
+                loginStatus.textContent = "驗證身分中...";
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    console.log("Using Custom Token");
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    console.log("Using Anonymous Auth");
+                    await signInAnonymously(auth);
+                }
             } catch (error) {
                 console.error("Login Error:", error);
-                
-                let errorMsg = "登入失敗: " + error.message;
-                
-                // 檢查是否為 COOP 相關的錯誤代碼
-                if (error.code === 'auth/unauthorized-domain') {
-                    errorMsg = "錯誤：網域未授權。請到 Firebase Console 新增您的 GitHub 網址到 Authorized Domains。";
-                } else if (error.code === 'auth/popup-closed-by-user') {
-                    errorMsg = "您關閉了登入視窗。";
-                } else if (error.code === 'auth/popup-blocked') {
-                    errorMsg = "瀏覽器阻擋了彈出視窗，請允許彈出視窗後重試。";
-                } else if (error.code === 'auth/cancelled-popup-request' || error.message.includes('popup')) {
-                    // 這可能涵蓋了彈出視窗被關閉或中斷的情況，通常是 COOP 錯誤發生的原因。
-                    errorMsg = "登入視窗已被關閉或連線中斷，如果您已成功登入，請忽略此訊息。";
-                }
-
-                // 如果 onAuthStateChanged 尚未捕捉到登入成功，才顯示錯誤訊息
-                if (!currentUser) {
-                    loginStatus.textContent = errorMsg;
-                    loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
-                    retryBtn.classList.remove('hidden');
-                } else {
-                    // 如果已登入，則忽略此錯誤，避免顯示干擾使用者
-                    console.log("登入似乎已成功，忽略彈出視窗關閉錯誤。");
-                    loginStatus.classList.add('hidden'); // 隱藏錯誤訊息
-                }
+                loginStatus.textContent = "驗證失敗: " + error.message;
             }
-        });
+        };
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
-             if(unsubscribeTrip) unsubscribeTrip(); // Stop listening
-             signOut(auth);
-             location.reload();
-        });
+        // 立即執行驗證
+        initAuth();
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // *** IMPORTANT: This is the successful login detection. ***
-                console.log("--- 登入成功！--- Auth State Changed: Logged In", user.email);
+                console.log("--- 登入成功！--- Auth State Changed: Logged In", user.uid);
                 
                 currentUser = user;
                 loginOverlay.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 
                 // Update Header UI
-                document.getElementById('user-name').textContent = user.displayName;
-                document.getElementById('user-avatar').src = user.photoURL;
-                document.getElementById('user-avatar').classList.remove('hidden');
+                const userNameDisplay = user.displayName || "使用者 " + user.uid.substring(0, 4);
+                document.getElementById('user-name').textContent = userNameDisplay;
+                
+                if (user.photoURL) {
+                    document.getElementById('user-avatar').src = user.photoURL;
+                    document.getElementById('user-avatar').classList.remove('hidden');
+                    document.getElementById('user-avatar-placeholder').classList.add('hidden');
+                } else {
+                    document.getElementById('user-avatar-placeholder').textContent = (user.displayName || "U")[0].toUpperCase();
+                }
 
                 // Load initial view
                 window.openCloudManager();
@@ -350,15 +327,15 @@
         const createNewTrip = async (tripData) => {
             try {
                 // IMPORTANT: Use the /artifacts/{appId}/public/data/trips path for collaborative public data
-                const appId = "default-app-id"; // Placeholder, assuming __app_id is not globally available in this context
+                // 這裡改為 artifacts/{appId}/public/data/trips 以符合環境規則
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
 
                 const docRef = await addDoc(collection(db, collectionPath), {
                     ...tripData,
                     ownerId: currentUser.uid,
-                    ownerName: currentUser.displayName,
+                    ownerName: currentUser.displayName || "Anonymous", // 因為匿名登入可能沒有名字
                     createdAt: new Date().toISOString(),
-                    collaborators: [currentUser.email], // Add self as collaborator
+                    collaborators: [currentUser.uid], // 這裡改用 UID 比較穩當，因為匿名登入沒有 Email
                     headerData: { costHeader1: '(NTD)', costHeader2: '(円)' }
                 });
                 return docRef.id;
@@ -376,10 +353,10 @@
             window.closeCloudManager();
             document.getElementById('loading-spinner').classList.remove('hidden');
 
-            const appId = "default-app-id"; // Placeholder
             const docPath = `artifacts/${appId}/public/data/trips/${tripId}`;
             const tripRef = doc(db, docPath);
             
+            // 必須要有錯誤 callback
             unsubscribeTrip = onSnapshot(tripRef, (doc) => {
                 document.getElementById('loading-spinner').classList.add('hidden');
                 if (doc.exists()) {
@@ -394,13 +371,11 @@
 
                     updateSyncStatus("已同步");
                 } else {
-                    // Use custom modal instead of alert()
                     alert("此行程已被刪除"); 
                     window.closeCurrentTrip();
                 }
             }, (error) => {
                 console.error(error);
-                // Use custom modal instead of alert()
                 alert("讀取失敗，您可能沒有權限。"); 
                 window.closeCurrentTrip();
             });
@@ -411,7 +386,6 @@
             if (!currentTripId) return;
             updateSyncStatus("同步中...", "pending");
             try {
-                const appId = "default-app-id"; // Placeholder
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
                 const tripRef = doc(db, docPath);
                 await updateDoc(tripRef, newData);
@@ -426,15 +400,19 @@
         window.openCloudManager = async () => {
             const listContainer = document.getElementById('cloud-list');
             const modal = document.getElementById('cloud-manager-modal');
+            const userIdDisplay = document.getElementById('my-user-id-display');
+            
+            if(currentUser) userIdDisplay.textContent = currentUser.uid;
+
             modal.classList.remove('hidden');
             listContainer.innerHTML = '<p class="text-center text-gray-400 mt-4">載入中...</p>';
 
             try {
-                const appId = "default-app-id"; // Placeholder
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
 
                 // Query trips where user is owner OR collaborator
-                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.email));
+                // 改用 UID 查詢
+                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.uid));
                 const querySnapshot = await getDocs(q);
 
                 listContainer.innerHTML = '';
@@ -454,7 +432,6 @@
                     };
                     
                     const isOwner = data.ownerId === currentUser.uid;
-                    // Changed confirm() to custom modal/alert replacement (using alert for now per instructions)
                     const deleteBtn = isOwner ? `<button class="delete-btn ml-2 p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${doc.id}')">🗑️</button>` : '';
 
                     item.innerHTML = `
@@ -462,7 +439,7 @@
                             <div class="font-bold text-gray-800 truncate">${data.tripName}</div>
                             <div class="text-xs text-gray-500">
                                 ${data.startDate} ~ ${data.endDate} <br>
-                                擁有者: ${isOwner ? '我' : data.ownerName}
+                                擁有者: ${isOwner ? '我' : (data.ownerName || '未知')}
                             </div>
                         </div>
                         ${deleteBtn}
@@ -472,7 +449,7 @@
 
             } catch (e) {
                 console.error(e);
-                listContainer.innerHTML = '<p class="text-red-500 text-center">載入失敗</p>';
+                listContainer.innerHTML = `<p class="text-red-500 text-center">載入失敗: ${e.message}</p>`;
             }
         };
 
@@ -481,9 +458,7 @@
         };
 
         window.deleteCloudTrip = async (id) => {
-            // Changed confirm() to alert() as per instructions
             if(confirm("確定要永久刪除此雲端行程嗎？")) { 
-                const appId = "default-app-id"; // Placeholder
                 const docPath = `artifacts/${appId}/public/data/trips/${id}`;
                 await deleteDoc(doc(db, docPath));
                 window.openCloudManager(); // Refresh list
@@ -504,35 +479,30 @@
             const list = document.getElementById('collaborators-list');
             list.innerHTML = '';
             if(currentTripData && currentTripData.collaborators) {
-                currentTripData.collaborators.forEach(email => {
+                currentTripData.collaborators.forEach(uid => {
                     const li = document.createElement('li');
-                    li.textContent = email;
-                    if(email === currentTripData.ownerName || (currentTripData.ownerId === currentUser.uid && email !== currentUser.email)) {
-                         // Add remove button logic if needed later
-                    }
+                    // 顯示 UID
+                    li.textContent = uid === currentUser.uid ? `${uid} (我)` : uid;
                     list.appendChild(li);
                 });
             }
         };
 
         window.addCollaborator = async () => {
-            const email = document.getElementById('share-email-input').value.trim();
-            if(!email) return;
+            const targetUid = document.getElementById('share-email-input').value.trim();
+            if(!targetUid) return;
             if(!currentTripId) return;
 
             try {
-                const appId = "default-app-id"; // Placeholder
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
 
                 await updateDoc(doc(db, docPath), {
-                    collaborators: arrayUnion(email)
+                    collaborators: arrayUnion(targetUid)
                 });
                 document.getElementById('share-email-input').value = '';
-                // Use custom modal instead of alert()
-                alert(`已邀請 ${email}`); 
+                alert(`已邀請 UID: ${targetUid}`); 
                 window.openShareModal(); // Refresh list
             } catch(e) {
-                // Use custom modal instead of alert()
                 alert("邀請失敗");
             }
         };
