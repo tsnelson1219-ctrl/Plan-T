@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.5 - Google 專用)</title>
+    <title>Plan-T (Cloud v1.3)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -25,15 +25,15 @@
         @media print { .no-print { display: none !important; } }
         .modal-overlay { background-color: rgba(0, 0, 0, 0.5); }
         
-        /* 登入遮罩樣式 (預設顯示) */
+        /* 登入遮罩樣式 */
         #login-overlay { position: fixed; inset: 0; background: #f7f9fb; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     </style>
 </head>
 <body class="min-h-screen">
 
-    <!-- 登入/載入畫面 (非登入狀態時顯示) -->
+    <!-- 登入畫面 -->
     <div id="login-overlay">
-        <h1 class="text-4xl font-extrabold text-blue-700 mb-10 flex items-center">
+        <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
                 <path d="M16 2v20"></path>
                 <path d="M2 6h4"></path>
@@ -45,20 +45,24 @@
             Plan-T 雲端版
         </h1>
         
-        <!-- 手動登入區域 (預設顯示) -->
-        <div id="manual-login-area" class="flex flex-col items-center w-full max-w-sm px-4">
-            <div id="error-message-box" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 w-full text-sm text-blue-700">
-                請使用 Google 帳號登入以存取雲端行程庫。
-            </div>
-            
-            <button id="google-login-btn" class="w-full flex justify-center items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700 mb-3">
+        <!-- 自動登入訊息 -->
+        <div id="auto-login-msg" class="text-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-600 font-medium">正在驗證身分...</p>
+        </div>
+
+        <!-- 手動登入區塊 (預設隱藏，只有在非預覽環境下才會顯示) -->
+        <div id="manual-login-area" class="hidden flex-col items-center">
+            <p class="text-gray-600 mb-8">請登入以存取您的雲端行程</p>
+            <button id="google-login-btn" class="flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
                 使用 Google 帳號登入
             </button>
+            <p id="login-status" class="mt-4 text-sm text-red-500 font-bold hidden"></p>
         </div>
     </div>
 
-    <!-- 主容器 (未登入時隱藏) -->
+    <!-- 主容器 (登入後顯示) -->
     <div id="app-container" class="max-w-6xl mx-auto p-4 md:p-6 hidden">
         
         <!-- 應用程式標題 -->
@@ -83,11 +87,9 @@
             <div class="w-full md:w-auto flex justify-end items-center gap-3">
                 <!-- 使用者資訊與登出 -->
                 <div class="flex items-center gap-2">
-                    <div id="user-avatar-placeholder" class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs">User</div>
                     <img id="user-avatar" src="" alt="User" class="w-8 h-8 rounded-full border border-gray-200 hidden">
                     <span id="user-name" class="text-sm font-medium text-gray-700 hidden md:inline"></span>
-                    <!-- 登出按鈕：現在始終在這裡準備好，登入後會顯示 -->
-                    <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded hidden">登出</button>
+                    <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded">登出</button>
                 </div>
             </div>
         </header>
@@ -124,7 +126,7 @@
                         </div>
                     </div>
                     
-                    <!-- 日曆組件 (暫時以 prompt 替代) -->
+                    <!-- 日曆組件 -->
                     <div id="calendar-popover" class="absolute top-full left-0 mt-2 w-full z-20 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 hidden md:w-80 md:left-1/2 md:-translate-x-1/2">
                         <div id="calendar-header" class="flex justify-between items-center mb-4">
                             <button type="button" class="p-2 hover:bg-gray-100 rounded-full" onclick="changeMonth(-1)">◀</button>
@@ -207,7 +209,7 @@
                 <button onclick="window.closeCloudManager()" class="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <div class="p-4 bg-blue-50 text-sm text-gray-600">
-                點擊下方列表開啟行程。您可以與朋友分享 ID (您的 ID: <span id="my-user-id-display" class="font-mono bg-blue-100 px-1 rounded"></span>) 來協作。
+                點擊下方列表開啟行程。您可以與朋友分享行程 ID 或 Email 來協作。
             </div>
             <div id="cloud-list" class="flex-grow overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-[200px]">
                 <p class="text-center text-gray-400 mt-10">載入中...</p>
@@ -222,10 +224,10 @@
     <div id="share-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex justify-center items-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">邀請協作者</h3>
-            <p class="text-sm text-gray-600 mb-4">輸入對方的 User ID (請對方在雲端行程庫查看 ID)。</p>
+            <p class="text-sm text-gray-600 mb-4">輸入對方的 Google Email，他就能在「雲端行程庫」看到並編輯此行程。</p>
             
             <div class="flex gap-2 mb-4">
-                <input type="text" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="輸入 User ID">
+                <input type="email" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="friend@gmail.com">
                 <button onclick="window.addCollaborator()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">新增</button>
             </div>
 
@@ -247,13 +249,12 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // 只導入 Google 登入和狀態監聽相關的函式
-        import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // Import signInWithCustomToken to fix the COOP error in preview
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            // Note: This fallback is often incomplete but required for self-containment.
+        const firebaseConfig = {
             apiKey: "AIzaSyCQtd1FzIi79nzxBoYUwFMErzSqQ1ql6H8",
             authDomain: "plan-t-18056.firebaseapp.com",
             projectId: "plan-t-18056",
@@ -267,106 +268,109 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const googleProvider = new GoogleAuthProvider();
+        const provider = new GoogleAuthProvider();
         
+        // Define appId using environment variable if available, else default
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- Global State ---
         let currentUser = null;
         let currentTripId = null;
         let currentTripData = null;
-        let unsubscribeTrip = null; 
+        let unsubscribeTrip = null; // Listener detacher
 
-        // --- UI References ---
+        // --- Auth Logic (Improved for Preview Environment) ---
         const loginOverlay = document.getElementById('login-overlay');
-        const manualLoginArea = document.getElementById('manual-login-area');
-        const errorMessageBox = document.getElementById('error-message-box');
         const appContainer = document.getElementById('app-container');
+        const loginStatus = document.getElementById('login-status');
+        const manualLoginArea = document.getElementById('manual-login-area');
+        const autoLoginMsg = document.getElementById('auto-login-msg');
 
-        // --- Auth Logic ---
-
-        // 顯示錯誤訊息
-        const showLoginError = (msg) => {
-            errorMessageBox.className = "bg-red-50 border border-red-200 rounded-lg p-4 mb-6 w-full text-sm text-red-700";
-            errorMessageBox.innerHTML = `<strong>登入發生錯誤：</strong><br>${msg}`;
+        // New Init Auth Function to handle environment token
+        const initAuth = async () => {
+            try {
+                // If we have a custom token (Preview Environment), use it.
+                // This bypasses the Popup blocker issues.
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    // No custom token means we are likely on a real deployed site (or exported).
+                    // In this case, we show the manual login buttons.
+                    autoLoginMsg.classList.add('hidden');
+                    manualLoginArea.classList.remove('hidden');
+                    manualLoginArea.classList.add('flex');
+                    
+                    // Optional: Try anonymous login if you want to allow guest access without Google
+                    // await signInAnonymously(auth); 
+                }
+            } catch (error) {
+                console.error("Auth Init Error:", error);
+                // If custom token fails, fallback to manual login
+                autoLoginMsg.classList.add('hidden');
+                manualLoginArea.classList.remove('hidden');
+                manualLoginArea.classList.add('flex');
+                loginStatus.textContent = "自動登入失敗，請嘗試手動登入";
+                loginStatus.classList.remove('hidden');
+            }
         };
 
-        // 綁定手動 Google 登入按鈕
+        // Call init immediately
+        initAuth();
+
+        // Keep the original button handler for manual fallback
         document.getElementById('google-login-btn').addEventListener('click', async () => {
             try {
-                // 登入中提示
-                errorMessageBox.textContent = "正在呼叫 Google 登入視窗...";
-                errorMessageBox.className = "bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 mb-6 rounded-lg w-full text-sm";
+                loginStatus.textContent = "正在連線到 Google...";
+                loginStatus.classList.remove('hidden');
+                loginStatus.className = "mt-4 text-sm text-gray-500 font-bold";
+
+                await setPersistence(auth, browserLocalPersistence);
+                await signInWithPopup(auth, provider);
                 
-                await signInWithPopup(auth, googleProvider);
-                // 成功的話 onAuthStateChanged 會處理
             } catch (error) {
-                console.error("Google Login Error:", error);
-                let msg = error.message;
+                console.error("Login Error:", error);
+                let errorMsg = "登入失敗: " + error.message;
                 
-                if (error.code === 'auth/popup-blocked') {
-                    msg = "瀏覽器阻擋了登入視窗。請檢查彈跳視窗設定，或嘗試重新整理頁面。";
-                } else if (error.code === 'auth/cancelled-popup-request') {
-                     msg = "登入已被取消。請重新點擊登入。";
-                } else if (error.code === 'auth/operation-not-allowed') {
-                     msg = "請確認您在 Firebase Console 的 Authentication > Sign-in method 中已開啟 <strong>Google 登入</strong>。";
-                } else if (error.code === 'auth/network-request-failed') {
-                    msg = "網路連線失敗，請檢查您的網路。";
+                if (error.code === 'auth/unauthorized-domain') {
+                    errorMsg = "錯誤：網域未授權。請到 Firebase Console 新增網域。";
+                } else if (error.code === 'auth/popup-blocked' || error.message.includes('popup')) {
+                    errorMsg = "瀏覽器阻擋了彈出視窗，或預覽環境不支援 Google 登入。請嘗試匯出檔案後再執行。";
                 }
 
-                showLoginError(msg);
+                if (!currentUser) {
+                    loginStatus.textContent = errorMsg;
+                    loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
+                }
             }
         });
 
-        // 登出按鈕
         document.getElementById('logout-btn').addEventListener('click', () => {
-             if(unsubscribeTrip) unsubscribeTrip(); // 取消對當前行程的監聽
-             signOut(auth).then(() => {
-                // 登出成功後重新整理頁面，顯示登入畫面
-                location.reload();
-             }).catch(error => {
-                 console.error("Logout Error:", error);
-                 alert("登出失敗: " + error.message);
-             });
+             if(unsubscribeTrip) unsubscribeTrip();
+             signOut(auth);
+             location.reload();
         });
 
-        // 監聽登入狀態
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // --- 已登入 ---
-                console.log("--- 登入成功！---", user.uid, "Provider:", user.providerData[0]?.providerId);
-                
+                console.log("--- 登入成功！---", user.email || "Anonymous/Custom User");
                 currentUser = user;
                 loginOverlay.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 
-                // 更新頭部 UI
-                const userNameDisplay = user.displayName || "使用者 " + user.uid.substring(0, 8);
-                document.getElementById('user-name').textContent = userNameDisplay;
-                document.getElementById('user-name').classList.remove('hidden');
-                
-                // 登出按鈕始終顯示給已登入用戶
-                document.getElementById('logout-btn').classList.remove('hidden');
-
+                // Update Header UI
+                document.getElementById('user-name').textContent = user.displayName || user.email || "User";
                 if (user.photoURL) {
                     document.getElementById('user-avatar').src = user.photoURL;
                     document.getElementById('user-avatar').classList.remove('hidden');
-                    document.getElementById('user-avatar-placeholder').classList.add('hidden');
                 } else {
-                    document.getElementById('user-avatar-placeholder').textContent = (user.displayName || "U")[0].toUpperCase();
-                    document.getElementById('user-avatar').classList.add('hidden');
-                    document.getElementById('user-avatar-placeholder').classList.remove('hidden');
+                    // Fallback avatar
+                    document.getElementById('user-avatar').src = "https://ui-avatars.com/api/?name=" + (user.displayName || "U");
+                    document.getElementById('user-avatar').classList.remove('hidden');
                 }
 
-                // 載入行程庫
                 window.openCloudManager();
             } else {
-                // --- 未登入/已登出 ---
-                console.log("Logged Out / Not Signed In");
                 currentUser = null;
-                // 確保登入介面顯示，主應用程式隱藏
-                loginOverlay.classList.remove('hidden');
-                appContainer.classList.add('hidden');
             }
         });
 
@@ -374,16 +378,16 @@
 
         // 1. Create New Trip
         const createNewTrip = async (tripData) => {
-            if(!currentUser) { alert("請先登入！"); return null; }
+            if (!currentUser) return;
             try {
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
 
                 const docRef = await addDoc(collection(db, collectionPath), {
                     ...tripData,
                     ownerId: currentUser.uid,
-                    ownerName: currentUser.displayName || "Google User", 
+                    ownerName: currentUser.displayName || currentUser.email || "Unknown",
                     createdAt: new Date().toISOString(),
-                    collaborators: [currentUser.uid], 
+                    collaborators: [currentUser.email || currentUser.uid], // Add self
                     headerData: { costHeader1: '(NTD)', costHeader2: '(円)' }
                 });
                 return docRef.id;
@@ -395,7 +399,7 @@
 
         // 2. Load Trip (Real-time)
         window.loadCloudTrip = (tripId) => {
-            if (!currentUser) { alert("請先登入！"); return; }
+            if (!currentUser) return;
             if (unsubscribeTrip) unsubscribeTrip(); 
             currentTripId = tripId;
             
@@ -429,13 +433,12 @@
         };
 
         // 3. Update Trip
-        const updateCloudTrip = async (newData, merge = true) => {
-            if (!currentUser || !currentTripId) return;
+        const updateCloudTrip = async (newData) => {
+            if (!currentTripId || !currentUser) return;
             updateSyncStatus("同步中...", "pending");
             try {
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
-                const tripRef = doc(db, docPath);
-                await updateDoc(tripRef, newData);
+                await updateDoc(doc(db, docPath), newData);
                 updateSyncStatus("已儲存");
             } catch (e) {
                 console.error(e);
@@ -445,21 +448,19 @@
 
         // 4. List User's Trips
         window.openCloudManager = async () => {
-            if (!currentUser) { alert("請先登入！"); return; }
+            if (!currentUser) return;
             const listContainer = document.getElementById('cloud-list');
             const modal = document.getElementById('cloud-manager-modal');
-            const userIdDisplay = document.getElementById('my-user-id-display');
-            
-            userIdDisplay.textContent = currentUser.uid;
-
             modal.classList.remove('hidden');
             listContainer.innerHTML = '<p class="text-center text-gray-400 mt-4">載入中...</p>';
 
             try {
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
 
-                // 只查詢協作者列表中包含當前用戶 ID 的行程
-                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.uid));
+                // Query trips where user is owner OR collaborator
+                // Note: currentUser.email might be null for anonymous users, fallback to UID logic if needed
+                const userIdentifier = currentUser.email || currentUser.uid;
+                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", userIdentifier));
                 const querySnapshot = await getDocs(q);
 
                 listContainer.innerHTML = '';
@@ -485,7 +486,7 @@
                             <div class="font-bold text-gray-800 truncate">${data.tripName}</div>
                             <div class="text-xs text-gray-500">
                                 ${data.startDate} ~ ${data.endDate} <br>
-                                擁有者: ${isOwner ? '我' : (data.ownerName || '未知')}
+                                擁有者: ${isOwner ? '我' : data.ownerName}
                             </div>
                         </div>
                         ${deleteBtn}
@@ -495,7 +496,7 @@
 
             } catch (e) {
                 console.error(e);
-                listContainer.innerHTML = `<p class="text-red-500 text-center">載入失敗: ${e.message}</p>`;
+                listContainer.innerHTML = '<p class="text-red-500 text-center">載入失敗</p>';
             }
         };
 
@@ -521,33 +522,31 @@
 
         // --- Collaboration Logic ---
         window.openShareModal = () => {
-            if (!currentUser || !currentTripId) { alert("請先登入並開啟行程！"); return; }
             document.getElementById('share-modal').classList.remove('hidden');
             const list = document.getElementById('collaborators-list');
             list.innerHTML = '';
             if(currentTripData && currentTripData.collaborators) {
-                currentTripData.collaborators.forEach(uid => {
+                currentTripData.collaborators.forEach(email => {
                     const li = document.createElement('li');
-                    li.textContent = uid === currentUser.uid ? `${uid} (我)` : uid;
+                    li.textContent = email;
                     list.appendChild(li);
                 });
             }
         };
 
         window.addCollaborator = async () => {
-            if (!currentUser || !currentTripId) { alert("請先登入並開啟行程！"); return; }
-            const targetUid = document.getElementById('share-email-input').value.trim();
-            if(!targetUid) return;
+            const email = document.getElementById('share-email-input').value.trim();
+            if(!email) return;
+            if(!currentTripId) return;
 
             try {
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
-
                 await updateDoc(doc(db, docPath), {
-                    collaborators: arrayUnion(targetUid)
+                    collaborators: arrayUnion(email)
                 });
                 document.getElementById('share-email-input').value = '';
-                alert(`已邀請 UID: ${targetUid}`); 
-                window.openShareModal(); 
+                alert(`已邀請 ${email}`); 
+                window.openShareModal();
             } catch(e) {
                 alert("邀請失敗");
             }
@@ -565,7 +564,6 @@
 
         document.getElementById('plan-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!currentUser) { alert("請先登入！"); return; }
             const tripName = document.getElementById('tripName').value.trim();
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
@@ -582,16 +580,12 @@
                     dayOfWeek: ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][curr.getDay()],
                     location: "", departureTime: "", cost1: "", cost2: "", confirmation: "TBD", remark: "", category: ""
                  });
-                 // 避免修改原始 Date 物件
-                 const nextDay = new Date(curr);
-                 nextDay.setDate(curr.getDate() + 1);
-                 curr = nextDay;
+                 curr.setDate(curr.getDate()+1);
                  idx++;
             }
 
             document.getElementById('loading-spinner').classList.remove('hidden');
             const newId = await createNewTrip({ tripName, startDate: start, endDate: end, itinerary });
-            
             if(newId) window.loadCloudTrip(newId);
         });
 
@@ -629,8 +623,7 @@
         window.insertRow = (idx, pos) => {
              const newItinerary = [...currentTripData.itinerary];
              const ref = newItinerary[idx];
-             // 繼承日期資訊，但清空內容
-             const item = { date: ref.date, dayNum: ref.dayNum, dayOfWeek: ref.dayOfWeek, location:"", departureTime:"", cost1:"", cost2:"", confirmation:"TBD", remark:"", category:"" };
+             const item = { ...ref, location:"", departureTime:"", cost1:"", cost2:"", confirmation:"TBD", remark:"", category:"" };
              if(pos === 'before') newItinerary.splice(idx, 0, item);
              else newItinerary.splice(idx+1, 0, item);
              updateCloudTrip({ itinerary: newItinerary });
@@ -662,10 +655,8 @@
             itinerary.forEach((item, index) => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-50';
-                // 檢查是否為新的一天 (且不是第一行) 來添加分隔線
                 if (!processedDates.has(item.date) && index > 0) tr.classList.add('new-day-border-top');
                 
-                // 處理日期/Day Cell (合併儲存格)
                 if (!processedDates.has(item.date)) {
                     tr.innerHTML += `<td rowspan="${rowspans[item.date]}" class="date-cell px-2 py-4 text-sm font-medium text-center border-r border-gray-200 bg-white sticky-col">${item.date.slice(5)}<br>${item.dayOfWeek}<br>(Day ${item.dayNum})</td>`;
                     processedDates.add(item.date);
@@ -677,13 +668,13 @@
                 tr.innerHTML += `
                     <td class="px-3 py-4 text-sm relative location-cell-wrapper group">
                          <div class="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 row-controls z-10">
-                            <button onclick="window.insertRow(${index}, 'before')" class="text-blue-600 bg-blue-100 p-1 rounded hover:bg-blue-300 transition">▲</button>
-                            <button onclick="window.insertRow(${index}, 'after')" class="text-blue-600 bg-blue-100 p-1 rounded hover:bg-blue-300 transition">▼</button>
+                            <button onclick="window.insertRow(${index}, 'before')" class="text-blue-600 bg-blue-100 p-1 rounded">▲</button>
+                            <button onclick="window.insertRow(${index}, 'after')" class="text-blue-600 bg-blue-100 p-1 rounded">▼</button>
                         </div>
                         <div class="flex items-start">
                             <div class="editable-cell flex-grow pl-6 p-2 border border-gray-300 rounded min-h-[2.5rem] ${catClass}" contenteditable="true" data-field="location" data-index="${index}">${item.location}</div>
-                            <button onclick="window.showCategoryMenu(${index}, this)" class="ml-1 p-1 bg-gray-100 rounded-full hover:bg-blue-200" title="分類">🏷️</button>
-                            <button onclick="window.deleteRow(${index})" class="ml-1 p-1 bg-red-50 text-red-400 rounded-full hover:bg-red-200 transition" title="刪除此行">✕</button>
+                            <button onclick="window.showCategoryMenu(${index}, this)" class="ml-1 p-1 bg-gray-100 rounded-full hover:bg-blue-200">🏷️</button>
+                            <button onclick="window.deleteRow(${index})" class="ml-1 p-1 bg-red-50 text-red-400 rounded-full hover:bg-red-200">✕</button>
                         </div>
                     </td>
                     <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="departureTime" data-index="${index}">${item.departureTime}</div></td>
@@ -702,7 +693,7 @@
 
         window.showCategoryMenu = (idx, btn) => {
             const pop = document.getElementById('global-category-popover');
-            pop.innerHTML = Object.entries(CATEGORY_MAP).map(([k,v]) => `<button onclick="window.selectCategory(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:opacity-80 ${v.class}">${k}</button>`).join('') + `<button onclick="window.selectCategory(${idx}, '')" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50">清除</button>`;
+            pop.innerHTML = Object.entries(CATEGORY_MAP).map(([k,v]) => `<button onclick="window.selectCategory(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:opacity-80 ${v.class}">${k}</button>`).join('') + `<button onclick="window.selectCategory(${idx}, '')" class="w-full text-left px-4 py-2 text-red-500">清除</button>`;
             const rect = btn.getBoundingClientRect();
             pop.style.top = (rect.top + window.scrollY) + 'px'; pop.style.left = (rect.right + 10) + 'px';
             pop.classList.remove('hidden');
@@ -717,7 +708,6 @@
         };
         
         document.addEventListener('click', (e) => {
-             // 點擊非按鈕區域時隱藏彈窗
              if(!e.target.closest('button')) {
                  document.getElementById('global-category-popover').classList.add('hidden');
                  document.getElementById('global-confirmation-popover').classList.add('hidden');
@@ -725,9 +715,7 @@
         });
 
         window.handleManualDateInput = (val, id) => { document.getElementById(id).value = val.replace(/\//g,'-'); };
-        
-        // 為了避免使用 alert/prompt，這裡使用瀏覽器內建的 confirm/prompt，但最好在正式環境使用 Modal
-        window.showCalendar = (id) => { 
+        window.showCalendar = (id) => {
              const val = prompt("請輸入日期 (YYYY-MM-DD):", document.getElementById(id).value || new Date().toISOString().split('T')[0]);
              if(val) { document.getElementById(id).value = val; document.getElementById(id+'Display').value = val; }
         };
@@ -737,8 +725,7 @@
                 const a = document.createElement("a"); a.href = canvas.toDataURL("image/jpeg"); a.download = "plan.jpg"; a.click();
             });
         };
-        // 為了避免使用 alert()，這裡使用瀏覽器內建的 confirm()
-        window.exportToCSV = () => { confirm("CSV 功能在雲端版中暫時隱藏，您確定要匯出嗎？"); }; 
+        window.exportToCSV = () => { alert("CSV 功能在雲端版中暫時隱藏"); }; 
 
     </script>
 </body>
