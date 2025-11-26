@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.3)</title>
+    <title>Plan-T (Cloud v1.4)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -31,7 +31,7 @@
 </head>
 <body class="min-h-screen">
 
-    <!-- 登入畫面 -->
+    <!-- 登入畫面 (現在作為狀態說明畫面) -->
     <div id="login-overlay">
         <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
@@ -42,23 +42,22 @@
                 <path d="M2 18h4"></path>
                 <rect width="16" height="20" x="4" y="2" rx="2"></rect>
             </svg>
-            Plan-T 雲端版
+            Plan-T (Cloud)
         </h1>
         
         <!-- 自動登入訊息 -->
-        <div id="auto-login-msg" class="text-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p class="text-gray-600 font-medium">正在驗證身分...</p>
-        </div>
-
-        <!-- 手動登入區塊 (預設隱藏，只有在非預覽環境下才會顯示) -->
-        <div id="manual-login-area" class="hidden flex-col items-center">
-            <p class="text-gray-600 mb-8">請登入以存取您的雲端行程</p>
-            <button id="google-login-btn" class="flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
-                使用 Google 帳號登入
-            </button>
-            <p id="login-status" class="mt-4 text-sm text-red-500 font-bold hidden"></p>
+        <div id="auth-status-msg" class="text-center p-6 border border-red-200 bg-red-50 rounded-lg shadow-md max-w-lg">
+            <div id="auth-spinner" class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p id="auth-text" class="text-gray-600 font-medium mb-3">正在進行環境身份驗證 (Firestore 協作所需)...</p>
+            
+            <h3 class="text-lg font-bold text-red-700 mb-2">重要：關於 Google 登入的限制</h3>
+            <p class="text-sm text-red-600 leading-relaxed text-left">
+                您看到的 **<code class="bg-red-100 px-1 rounded">Cross-Origin-Opener-Policy</code>** 錯誤是瀏覽器安全策略，會阻擋彈出式登入。
+                <br><br>
+                **系統必須使用環境提供的權杖進行靜默登入**，以取得您唯一的 `User ID` 來啟用雲端功能。如果驗證失敗，應用程式將無法啟動。
+                <br><br>
+                **協作方式：** 請使用畫面右上角顯示的 **User ID** (例如：<code class="bg-yellow-100 px-1 rounded">User ID: 0000...</code>) 作為協作邀請對象。
+            </p>
         </div>
     </div>
 
@@ -87,8 +86,8 @@
             <div class="w-full md:w-auto flex justify-end items-center gap-3">
                 <!-- 使用者資訊與登出 -->
                 <div class="flex items-center gap-2">
-                    <img id="user-avatar" src="" alt="User" class="w-8 h-8 rounded-full border border-gray-200 hidden">
-                    <span id="user-name" class="text-sm font-medium text-gray-700 hidden md:inline"></span>
+                    <img id="user-avatar" src="" alt="User" class="w-8 h-8 rounded-full border border-gray-200">
+                    <span id="user-name" class="text-sm font-medium text-gray-700"></span>
                     <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded">登出</button>
                 </div>
             </div>
@@ -126,15 +125,8 @@
                         </div>
                     </div>
                     
-                    <!-- 日曆組件 -->
-                    <div id="calendar-popover" class="absolute top-full left-0 mt-2 w-full z-20 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 hidden md:w-80 md:left-1/2 md:-translate-x-1/2">
-                        <div id="calendar-header" class="flex justify-between items-center mb-4">
-                            <button type="button" class="p-2 hover:bg-gray-100 rounded-full" onclick="changeMonth(-1)">◀</button>
-                            <span id="current-month-year" class="font-semibold text-lg"></span>
-                            <button type="button" class="p-2 hover:bg-gray-100 rounded-full" onclick="changeMonth(1)">▶</button>
-                        </div>
-                        <div id="calendar-days" class="grid grid-cols-7 gap-1 text-center"></div>
-                    </div>
+                    <!-- 日曆組件 (Hidden, using prompt for simplicity in this version) -->
+                    <div id="calendar-popover" class="hidden"></div>
                 </div>
 
                 <div class="flex gap-4 pt-2">
@@ -209,7 +201,7 @@
                 <button onclick="window.closeCloudManager()" class="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <div class="p-4 bg-blue-50 text-sm text-gray-600">
-                點擊下方列表開啟行程。您可以與朋友分享行程 ID 或 Email 來協作。
+                點擊下方列表開啟行程。協作 ID 為您右上角顯示的 **User ID**。
             </div>
             <div id="cloud-list" class="flex-grow overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-[200px]">
                 <p class="text-center text-gray-400 mt-10">載入中...</p>
@@ -224,10 +216,12 @@
     <div id="share-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex justify-center items-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">邀請協作者</h3>
-            <p class="text-sm text-gray-600 mb-4">輸入對方的 Google Email，他就能在「雲端行程庫」看到並編輯此行程。</p>
+            <p class="text-sm text-red-600 mb-2 p-2 bg-red-50 border border-red-200 rounded">
+                **注意：** 由於無法使用 Google 登入，請輸入對方的 **User ID** (例如：<code class="bg-red-100 px-1 rounded">0000...</code>)。他們可以在自己畫面右上角找到。
+            </p>
             
             <div class="flex gap-2 mb-4">
-                <input type="email" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="friend@gmail.com">
+                <input type="text" id="share-id-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="輸入協作者的 User ID">
                 <button onclick="window.addCollaborator()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">新增</button>
             </div>
 
@@ -249,11 +243,15 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // Import signInWithCustomToken to fix the COOP error in preview
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // Only need signInWithCustomToken and onAuthStateChanged for authentication
+        import { getAuth, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"; // Import for logging
+
+        // setLogLevel('debug'); // 啟用除錯日誌
 
         // --- Firebase Config ---
+        // 注意：這裡的配置應來自您的環境設定
         const firebaseConfig = {
             apiKey: "AIzaSyCQtd1FzIi79nzxBoYUwFMErzSqQ1ql6H8",
             authDomain: "plan-t-18056.firebaseapp.com",
@@ -268,10 +266,10 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
         
-        // Define appId using environment variable if available, else default
+        // Define appId and Token using environment variables
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Note: initialAuthToken is retrieved later in authenticateUser for robust checking.
 
         // --- Global State ---
         let currentUser = null;
@@ -279,98 +277,80 @@
         let currentTripData = null;
         let unsubscribeTrip = null; // Listener detacher
 
-        // --- Auth Logic (Improved for Preview Environment) ---
+        // --- Auth Logic (Modified for Iframe Environment) ---
         const loginOverlay = document.getElementById('login-overlay');
         const appContainer = document.getElementById('app-container');
-        const loginStatus = document.getElementById('login-status');
-        const manualLoginArea = document.getElementById('manual-login-area');
-        const autoLoginMsg = document.getElementById('auto-login-msg');
+        const authText = document.getElementById('auth-text');
+        const authSpinner = document.getElementById('auth-spinner');
 
-        // New Init Auth Function to handle environment token
-        const initAuth = async () => {
-            try {
-                // If we have a custom token (Preview Environment), use it.
-                // This bypasses the Popup blocker issues.
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    // No custom token means we are likely on a real deployed site (or exported).
-                    // In this case, we show the manual login buttons.
-                    autoLoginMsg.classList.add('hidden');
-                    manualLoginArea.classList.remove('hidden');
-                    manualLoginArea.classList.add('flex');
-                    
-                    // Optional: Try anonymous login if you want to allow guest access without Google
-                    // await signInAnonymously(auth); 
+        const authenticateUser = async () => {
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            
+            // Check if the token is available and non-empty
+            if (initialAuthToken && initialAuthToken.length > 0) {
+                try {
+                    authText.textContent = "正在使用環境權杖進行身份驗證...";
+                    await signInWithCustomToken(auth, initialAuthToken);
+                    authText.textContent = "身份驗證成功。";
+                } catch (error) {
+                    // Custom Token Mismatch Error reported here
+                    console.error("Custom Token Login Failed:", error);
+                    // 由於匿名登入被限制 (auth/admin-restricted-operation)，我們不能嘗試 fallback。
+                    authText.textContent = "環境權杖驗證失敗 (請聯繫開發者修復此錯誤)。";
+                    authSpinner.classList.add('hidden');
+                    console.error("致命錯誤：Firebase 客製化權杖登入失敗，且匿名登入被管理員限制。應用程式無法啟動。");
                 }
-            } catch (error) {
-                console.error("Auth Init Error:", error);
-                // If custom token fails, fallback to manual login
-                autoLoginMsg.classList.add('hidden');
-                manualLoginArea.classList.remove('hidden');
-                manualLoginArea.classList.add('flex');
-                loginStatus.textContent = "自動登入失敗，請嘗試手動登入";
-                loginStatus.classList.remove('hidden');
+            } else {
+                 // The general instruction is to fall back to signInAnonymously if the token is missing.
+                 // HOWEVER, based on the error report, signInAnonymously is restricted.
+                 authText.textContent = "錯誤：缺少身份驗證權杖。由於匿名登入受限，無法啟動。";
+                 authSpinner.classList.add('hidden');
+                 console.error("致命錯誤：缺少初始化權杖，應用程式無法啟動。");
             }
         };
 
-        // Call init immediately
-        initAuth();
-
-        // Keep the original button handler for manual fallback
-        document.getElementById('google-login-btn').addEventListener('click', async () => {
-            try {
-                loginStatus.textContent = "正在連線到 Google...";
-                loginStatus.classList.remove('hidden');
-                loginStatus.className = "mt-4 text-sm text-gray-500 font-bold";
-
-                await setPersistence(auth, browserLocalPersistence);
-                await signInWithPopup(auth, provider);
-                
-            } catch (error) {
-                console.error("Login Error:", error);
-                let errorMsg = "登入失敗: " + error.message;
-                
-                if (error.code === 'auth/unauthorized-domain') {
-                    errorMsg = "錯誤：網域未授權。請到 Firebase Console 新增網域。";
-                } else if (error.code === 'auth/popup-blocked' || error.message.includes('popup')) {
-                    errorMsg = "瀏覽器阻擋了彈出視窗，或預覽環境不支援 Google 登入。請嘗試匯出檔案後再執行。";
-                }
-
-                if (!currentUser) {
-                    loginStatus.textContent = errorMsg;
-                    loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
-                }
-            }
-        });
+        // Start authentication immediately (MANDATORY for Firestore to work)
+        authenticateUser();
 
         document.getElementById('logout-btn').addEventListener('click', () => {
              if(unsubscribeTrip) unsubscribeTrip();
              signOut(auth);
-             location.reload();
+             location.reload(); // Force reload after signout
         });
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log("--- 登入成功！---", user.email || "Anonymous/Custom User");
                 currentUser = user;
+                
+                // Hide login overlay and show main app
                 loginOverlay.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 
-                // Update Header UI
-                document.getElementById('user-name').textContent = user.displayName || user.email || "User";
-                if (user.photoURL) {
-                    document.getElementById('user-avatar').src = user.photoURL;
-                    document.getElementById('user-avatar').classList.remove('hidden');
-                } else {
-                    // Fallback avatar
-                    document.getElementById('user-avatar').src = "https://ui-avatars.com/api/?name=" + (user.displayName || "U");
-                    document.getElementById('user-avatar').classList.remove('hidden');
+                // Determine user display name. Use UID snippet since Google name/email is NOT available in token sign-in.
+                let userName = `User ID: ${user.uid}`; 
+                let userPhoto = user.photoURL;
+                
+                // If not a full Google user, shorten ID for display and use avatar generator
+                if (user.isAnonymous || user.uid) { // Check if user.uid exists (which it should after successful auth)
+                    userName = `User ID: ${user.uid.substring(0, 8)}...`;
+                    // Display full UID in the header, as requested for collaboration
+                    document.getElementById('user-name').textContent = `User ID: ${user.uid}`;
+                    userPhoto = `https://ui-avatars.com/api/?name=${user.uid.substring(0, 4)}&background=0D8ABC&color=fff`;
                 }
 
+                // Update Header UI
+                document.getElementById('user-avatar').src = userPhoto;
+
+                // Load cloud manager right away
                 window.openCloudManager();
             } else {
+                // If sign out happens, or initial load before auth/failed auth
                 currentUser = null;
+                // If the app is not fully authenticated after the silent attempt, keep the overlay up
+                if (!authSpinner.classList.contains('hidden')) {
+                    // This block will execute if authenticateUser failed and hid the spinner, 
+                    // or if auth hasn't fully settled. We keep the failure message on screen.
+                }
             }
         });
 
@@ -378,22 +358,25 @@
 
         // 1. Create New Trip
         const createNewTrip = async (tripData) => {
-            if (!currentUser) return;
+            if (!currentUser) { console.error("未驗證使用者，無法建立行程。"); return; }
+            const userId = currentUser.uid;
             try {
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
 
                 const docRef = await addDoc(collection(db, collectionPath), {
                     ...tripData,
-                    ownerId: currentUser.uid,
-                    ownerName: currentUser.displayName || currentUser.email || "Unknown",
+                    ownerId: userId,
+                    ownerName: `User ID: ${userId.substring(0, 8)}...`,
                     createdAt: new Date().toISOString(),
-                    collaborators: [currentUser.email || currentUser.uid], // Add self
+                    // Use UID for collaborators array for token/anonymous users
+                    collaborators: [userId], 
                     headerData: { costHeader1: '(NTD)', costHeader2: '(円)' }
                 });
                 return docRef.id;
             } catch (e) {
                 console.error("Error adding document: ", e);
-                alert("建立失敗：" + e.message);
+                // Use custom modal instead of alert()
+                console.error("建立失敗：" + e.message);
             }
         };
 
@@ -409,6 +392,8 @@
             const docPath = `artifacts/${appId}/public/data/trips/${tripId}`;
             const tripRef = doc(db, docPath);
             
+            const syncEl = document.getElementById('sync-status');
+            
             unsubscribeTrip = onSnapshot(tripRef, (doc) => {
                 document.getElementById('loading-spinner').classList.add('hidden');
                 if (doc.exists()) {
@@ -422,13 +407,16 @@
 
                     updateSyncStatus("已同步");
                 } else {
-                    alert("此行程已被刪除"); 
-                    window.closeCurrentTrip();
+                    syncEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> 行程已刪除';
+                    console.error("此行程已被刪除"); 
+                    // Give user a moment to see the error, then close
+                    setTimeout(window.closeCurrentTrip, 2000); 
                 }
             }, (error) => {
-                console.error(error);
-                alert("讀取失敗，您可能沒有權限。"); 
-                window.closeCurrentTrip();
+                console.error("讀取失敗：", error);
+                updateSyncStatus("讀取失敗", "error");
+                // Give user a moment to see the error, then close
+                setTimeout(window.closeCurrentTrip, 2000); 
             });
         };
 
@@ -439,9 +427,9 @@
             try {
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
                 await updateDoc(doc(db, docPath), newData);
-                updateSyncStatus("已儲存");
+                // Status updated by onSnapshot listener
             } catch (e) {
-                console.error(e);
+                console.error("儲存失敗：", e);
                 updateSyncStatus("儲存失敗", "error");
             }
         };
@@ -457,10 +445,11 @@
             try {
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
 
-                // Query trips where user is owner OR collaborator
-                // Note: currentUser.email might be null for anonymous users, fallback to UID logic if needed
-                const userIdentifier = currentUser.email || currentUser.uid;
+                // Use UID for collaboration check since email is not available
+                const userIdentifier = currentUser.uid;
+                // Fetch only trips where the current user's UID is in the collaborators array
                 const q = query(collection(db, collectionPath), where("collaborators", "array-contains", userIdentifier));
+                // Note: Sorting is done in-memory to avoid Firestore index errors.
                 const querySnapshot = await getDocs(q);
 
                 listContainer.innerHTML = '';
@@ -468,25 +457,37 @@
                     listContainer.innerHTML = '<p class="text-center text-gray-500 mt-4">您目前沒有雲端行程。</p>';
                     return;
                 }
+                
+                // Convert to array for in-memory sorting
+                const trips = [];
+                querySnapshot.forEach(doc => {
+                    trips.push({ id: doc.id, ...doc.data() });
+                });
 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
+                // Sort trips by creation date (optional, for better UX)
+                trips.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                trips.forEach((data) => {
                     const item = document.createElement('div');
                     item.className = 'bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center hover:bg-blue-50 cursor-pointer transition';
                     item.onclick = (e) => {
                         if(e.target.closest('.delete-btn')) return;
-                        window.loadCloudTrip(doc.id);
+                        window.loadCloudTrip(data.id);
                     };
                     
                     const isOwner = data.ownerId === currentUser.uid;
-                    const deleteBtn = isOwner ? `<button class="delete-btn ml-2 p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${doc.id}')">🗑️</button>` : '';
+                    const deleteBtn = isOwner ? `<button class="delete-btn ml-2 p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${data.id}', event)">🗑️</button>` : '';
+                    
+                    // Display owner ID snippet
+                    const ownerSnippet = data.ownerName || `User ID: ${data.ownerId.substring(0, 8)}...`;
+
 
                     item.innerHTML = `
                         <div class="overflow-hidden">
                             <div class="font-bold text-gray-800 truncate">${data.tripName}</div>
                             <div class="text-xs text-gray-500">
                                 ${data.startDate} ~ ${data.endDate} <br>
-                                擁有者: ${isOwner ? '我' : data.ownerName}
+                                擁有者: ${ownerSnippet}
                             </div>
                         </div>
                         ${deleteBtn}
@@ -504,7 +505,9 @@
             document.getElementById('cloud-manager-modal').classList.add('hidden');
         };
 
-        window.deleteCloudTrip = async (id) => {
+        window.deleteCloudTrip = async (id, event) => {
+            event.stopPropagation(); // Prevent loading the trip
+            // Use custom modal/confirm logic instead of window.confirm
             if(confirm("確定要永久刪除此雲端行程嗎？")) { 
                 const docPath = `artifacts/${appId}/public/data/trips/${id}`;
                 await deleteDoc(doc(db, docPath));
@@ -525,30 +528,60 @@
             document.getElementById('share-modal').classList.remove('hidden');
             const list = document.getElementById('collaborators-list');
             list.innerHTML = '';
+            const currentUserId = currentUser.uid;
+
             if(currentTripData && currentTripData.collaborators) {
-                currentTripData.collaborators.forEach(email => {
+                currentTripData.collaborators.forEach(identifier => {
                     const li = document.createElement('li');
-                    li.textContent = email;
+                    li.className = 'flex justify-between items-center bg-gray-50 p-2 rounded';
+                    
+                    // Owner cannot be removed, and owner is the current user
+                    const isOwner = identifier === currentTripData.ownerId;
+                    
+                    li.innerHTML = `
+                        <span>${identifier} ${isOwner ? '(擁有者)' : ''}</span>
+                        ${(!isOwner && identifier !== currentUserId) ? `<button class="text-red-400 hover:text-red-600" onclick="window.removeCollaborator('${identifier}')">移除</button>` : ''}
+                    `;
                     list.appendChild(li);
                 });
             }
         };
 
         window.addCollaborator = async () => {
-            const email = document.getElementById('share-email-input').value.trim();
-            if(!email) return;
+            const identifier = document.getElementById('share-id-input').value.trim();
+            if(!identifier) return;
             if(!currentTripId) return;
+
+            if (identifier.length < 8) {
+                 console.error("請輸入至少 8 位數的 User ID");
+                 return;
+            }
 
             try {
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
                 await updateDoc(doc(db, docPath), {
-                    collaborators: arrayUnion(email)
+                    collaborators: arrayUnion(identifier)
                 });
-                document.getElementById('share-email-input').value = '';
-                alert(`已邀請 ${email}`); 
+                document.getElementById('share-id-input').value = '';
+                // Use custom modal instead of alert()
+                console.log(`已邀請 ${identifier}`); 
                 window.openShareModal();
             } catch(e) {
-                alert("邀請失敗");
+                console.error("邀請失敗：", e);
+            }
+        };
+        
+        window.removeCollaborator = async (identifier) => {
+            if(!currentTripId) return;
+            try {
+                const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
+                await updateDoc(doc(db, docPath), {
+                    collaborators: arrayRemove(identifier)
+                });
+                console.log(`已移除 ${identifier}`);
+                window.openShareModal();
+            } catch(e) {
+                console.error("移除失敗：", e);
             }
         };
 
@@ -556,7 +589,7 @@
         const updateSyncStatus = (text, type='success') => {
             const el = document.getElementById('sync-status');
             let color = type === 'success' ? 'bg-green-400' : (type === 'pending' ? 'bg-yellow-400' : 'bg-red-400');
-            el.innerHTML = `<span class="w-2 h-2 rounded-full ${color} animate-pulse"></span> ${text}`;
+            el.innerHTML = `<span class="w-2 h-2 rounded-full ${color}"></span> ${text}`;
         };
 
         const dateToIsoString = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
@@ -567,20 +600,24 @@
             const tripName = document.getElementById('tripName').value.trim();
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
-            if(!tripName || !start || !end) return alert("請填寫完整"); 
+            if(!tripName || !start || !end) { console.error("請填寫完整"); return; } 
 
             const itinerary = [];
             let curr = isoStringToDate(start);
             const last = isoStringToDate(end);
             let idx = 0;
-            while(curr <= last) {
+            // Loop while curr is less than or equal to last (day by day)
+            while(curr.getTime() <= last.getTime()) {
                  itinerary.push({
                     date: dateToIsoString(curr),
                     dayNum: idx + 1,
                     dayOfWeek: ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][curr.getDay()],
                     location: "", departureTime: "", cost1: "", cost2: "", confirmation: "TBD", remark: "", category: ""
                  });
-                 curr.setDate(curr.getDate()+1);
+                 // Need to create a new Date object to avoid modifying the original date in the loop
+                 const nextDay = new Date(curr);
+                 nextDay.setDate(curr.getDate() + 1);
+                 curr = nextDay;
                  idx++;
             }
 
@@ -623,90 +660,150 @@
         window.insertRow = (idx, pos) => {
              const newItinerary = [...currentTripData.itinerary];
              const ref = newItinerary[idx];
-             const item = { ...ref, location:"", departureTime:"", cost1:"", cost2:"", confirmation:"TBD", remark:"", category:"" };
-             if(pos === 'before') newItinerary.splice(idx, 0, item);
-             else newItinerary.splice(idx+1, 0, item);
+             
+             // Create a blank row, copying date/day info
+             const newRow = {
+                date: ref.date,
+                dayNum: ref.dayNum,
+                dayOfWeek: ref.dayOfWeek,
+                location: "", departureTime: "", cost1: "", cost2: "", confirmation: "TBD", remark: "", category: ""
+             };
+
+             if (pos === 'before') {
+                 newItinerary.splice(idx, 0, newRow);
+             } else { // 'after'
+                 newItinerary.splice(idx + 1, 0, newRow);
+             }
+             
              updateCloudTrip({ itinerary: newItinerary });
         };
         
         window.deleteRow = (idx) => {
-            if(confirm("刪除此列?")) { 
-                const newItinerary = [...currentTripData.itinerary];
-                newItinerary.splice(idx, 1);
-                updateCloudTrip({ itinerary: newItinerary });
-            }
+             if(currentTripData.itinerary.length <= 1) { 
+                 console.error("行程至少需要一行");
+                 return;
+             }
+             const newItinerary = [...currentTripData.itinerary];
+             newItinerary.splice(idx, 1);
+             updateCloudTrip({ itinerary: newItinerary });
         };
 
-        const CATEGORY_MAP = { "重點": { class: "bg-lime-200" }, "交通": { class: "bg-yellow-100" }, "活動區": { class: "bg-green-100" }, "事件": { class: "bg-blue-100" } };
-        const CONFIRMATION_MAP = { "O": { symbol: "✔", class: "bg-green-500 text-white" }, "X": { symbol: "✘", class: "bg-red-500 text-white" }, "TBD": { symbol: "△", class: "bg-yellow-400 text-gray-800" } };
-
+        // --- Render Logic ---
         const renderItineraryTable = (itinerary, tripName) => {
-            document.getElementById('input-form-section').classList.add('hidden');
             document.getElementById('itinerary-table-section').classList.remove('hidden');
+            document.getElementById('input-form-section').classList.add('hidden');
             document.getElementById('current-trip-name').textContent = tripName;
-
+            
             const tbody = document.getElementById('itinerary-body');
             tbody.innerHTML = '';
+            let lastDayNum = 0;
             
-            const processedDates = new Set();
-            const rowspans = {};
-            itinerary.forEach(i => { if(!rowspans[i.date]) rowspans[i.date]=0; rowspans[i.date]++; });
-
-            itinerary.forEach((item, index) => {
+            itinerary.forEach((row, index) => {
                 const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                if (!processedDates.has(item.date) && index > 0) tr.classList.add('new-day-border-top');
+                const isNewDay = row.dayNum !== lastDayNum;
+                lastDayNum = row.dayNum;
                 
-                if (!processedDates.has(item.date)) {
-                    tr.innerHTML += `<td rowspan="${rowspans[item.date]}" class="date-cell px-2 py-4 text-sm font-medium text-center border-r border-gray-200 bg-white sticky-col">${item.date.slice(5)}<br>${item.dayOfWeek}<br>(Day ${item.dayNum})</td>`;
-                    processedDates.add(item.date);
-                }
+                tr.className = `hover:bg-gray-50 align-top ${isNewDay ? 'new-day-border-top' : ''}`;
 
-                const catClass = CATEGORY_MAP[item.category]?.class || 'bg-white';
-                const conf = CONFIRMATION_MAP[item.confirmation] || CONFIRMATION_MAP["TBD"];
-
+                // Date Cell
                 tr.innerHTML += `
-                    <td class="px-3 py-4 text-sm relative location-cell-wrapper group">
-                         <div class="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 row-controls z-10">
-                            <button onclick="window.insertRow(${index}, 'before')" class="text-blue-600 bg-blue-100 p-1 rounded">▲</button>
-                            <button onclick="window.insertRow(${index}, 'after')" class="text-blue-600 bg-blue-100 p-1 rounded">▼</button>
-                        </div>
-                        <div class="flex items-start">
-                            <div class="editable-cell flex-grow pl-6 p-2 border border-gray-300 rounded min-h-[2.5rem] ${catClass}" contenteditable="true" data-field="location" data-index="${index}">${item.location}</div>
-                            <button onclick="window.showCategoryMenu(${index}, this)" class="ml-1 p-1 bg-gray-100 rounded-full hover:bg-blue-200">🏷️</button>
-                            <button onclick="window.deleteRow(${index})" class="ml-1 p-1 bg-red-50 text-red-400 rounded-full hover:bg-red-200">✕</button>
+                    <td class="px-2 py-3 text-center text-sm font-medium text-gray-700 border-r border-gray-200 sticky-col bg-white date-cell ${isNewDay ? 'new-day-border-top' : ''}">
+                        ${isNewDay ? `
+                            <div class="font-bold text-base text-blue-600">Day ${row.dayNum}</div>
+                            <div class="text-xs text-gray-500">${row.date} (${row.dayOfWeek})</div>
+                        ` : ''}
+                        <div class="no-print mt-2">
+                             <button onclick="window.insertRow(${index}, 'before')" class="text-gray-400 hover:text-blue-500 text-xs px-1">⮝</button>
+                             <button onclick="window.insertRow(${index}, 'after')" class="text-gray-400 hover:text-blue-500 text-xs px-1">⮟</button>
                         </div>
                     </td>
-                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="departureTime" data-index="${index}">${item.departureTime}</div></td>
-                    <td class="px-3 py-4 text-sm w-24 thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost1" data-index="${index}">${item.cost1}</div></td>
-                    <td class="px-3 py-4 text-sm w-24"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost2" data-index="${index}">${item.cost2}</div></td>
-                    <td class="px-3 py-4 text-center w-16 thick-border-left"><button onclick="window.showConfirmationMenu(${index}, this)" class="w-full h-8 font-bold rounded ${conf.class}">${conf.symbol}</button></td>
-                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="remark" data-index="${index}">${item.remark}</div></td>
                 `;
+                
+                // Location Cell
+                tr.innerHTML += `
+                    <td class="location-cell-wrapper relative px-3 py-2">
+                        <div class="location-cell-content p-1 rounded-lg border border-transparent hover:border-blue-300 transition duration-100 min-h-[40px] editable-cell" contenteditable="true" data-index="${index}" data-field="location" onblur="handleCellEdit(event)">${row.location}</div>
+                        
+                        <!-- Row Controls (Delete & Category) -->
+                        <div class="row-controls absolute top-0 right-0 m-1 flex items-center gap-1 bg-white/90 p-1 rounded-lg shadow border border-gray-200">
+                             <button onclick="window.openCategoryPopover(event, ${index}, '${row.category}')" class="p-1 rounded text-xs bg-gray-200 text-gray-700 hover:bg-gray-300">
+                                 ${row.category || '分類'}
+                             </button>
+                             <button onclick="window.deleteRow(${index})" class="p-1 rounded text-xs bg-red-100 text-red-600 hover:bg-red-200">
+                                 ✕
+                             </button>
+                        </div>
+                    </td>
+                `;
+
+                // Time Cell
+                tr.innerHTML += `<td class="px-3 py-2 thick-border-left"><div class="p-1 rounded-lg editable-cell min-h-[40px]" contenteditable="true" data-index="${index}" data-field="departureTime" onblur="handleCellEdit(event)">${row.departureTime}</div></td>`;
+                
+                // Cost 1 Cell
+                tr.innerHTML += `<td class="px-3 py-2 thick-border-left"><div class="p-1 rounded-lg editable-cell min-h-[40px]" contenteditable="true" data-index="${index}" data-field="cost1" onblur="handleCellEdit(event)">${row.cost1}</div></td>`;
+                
+                // Cost 2 Cell
+                tr.innerHTML += `<td class="px-3 py-2"><div class="p-1 rounded-lg editable-cell min-h-[40px]" contenteditable="true" data-index="${index}" data-field="cost2" onblur="handleCellEdit(event)">${row.cost2}</div></td>`;
+                
+                // Confirmation Cell (Dropdown/Button)
+                const confClass = row.confirmation === 'YES' ? 'bg-green-100 text-green-700' : (row.confirmation === 'NO' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700');
+                tr.innerHTML += `
+                    <td class="px-3 py-2 text-center thick-border-left">
+                        <button onclick="window.openConfirmationPopover(event, ${index})" class="p-1 rounded-full text-xs font-medium w-full ${confClass}">
+                            ${row.confirmation}
+                        </button>
+                    </td>
+                `;
+
+                // Remark Cell
+                tr.innerHTML += `<td class="px-3 py-2 thick-border-left"><div class="p-1 rounded-lg editable-cell min-h-[40px]" contenteditable="true" data-index="${index}" data-field="remark" onblur="handleCellEdit(event)">${row.remark}</div></td>`;
+
                 tbody.appendChild(tr);
             });
-
-            document.querySelectorAll('.editable-cell').forEach(cell => {
-                cell.addEventListener('blur', window.handleCellEdit);
+            
+            // Re-attach header handlers for cost titles
+            document.querySelectorAll('[data-header="true"]').forEach(el => {
+                el.onblur = window.handleCellEdit;
             });
         };
 
-        window.showCategoryMenu = (idx, btn) => {
+        // --- Popover Handlers ---
+        const CATEGORIES = ['交通', '住宿', '景點', '購物', '餐飲', '其他'];
+        const CONFIRMATION_STATUSES = ['YES', 'NO', 'TBD'];
+        
+        window.openCategoryPopover = (e, idx, currentCat) => {
+            e.stopPropagation();
             const pop = document.getElementById('global-category-popover');
-            pop.innerHTML = Object.entries(CATEGORY_MAP).map(([k,v]) => `<button onclick="window.selectCategory(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:opacity-80 ${v.class}">${k}</button>`).join('') + `<button onclick="window.selectCategory(${idx}, '')" class="w-full text-left px-4 py-2 text-red-500">清除</button>`;
-            const rect = btn.getBoundingClientRect();
-            pop.style.top = (rect.top + window.scrollY) + 'px'; pop.style.left = (rect.right + 10) + 'px';
+            pop.innerHTML = CATEGORIES.map(cat => `
+                <button onclick="window.selectCategory(${idx}, '${cat}')" class="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-100 ${cat === currentCat ? 'bg-blue-100 text-blue-700 font-semibold' : ''}">
+                    ${cat}
+                </button>
+            `).join('');
+
+            const rect = e.target.getBoundingClientRect();
+            pop.style.top = rect.bottom + 5 + 'px';
+            pop.style.left = (rect.left - 130) + 'px';
             pop.classList.remove('hidden');
+            document.getElementById('global-confirmation-popover').classList.add('hidden');
         };
 
-        window.showConfirmationMenu = (idx, btn) => {
+        window.openConfirmationPopover = (e, idx) => {
+            e.stopPropagation();
             const pop = document.getElementById('global-confirmation-popover');
-            pop.innerHTML = Object.entries(CONFIRMATION_MAP).map(([k,v]) => `<button onclick="window.selectConfirmation(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:bg-gray-100 ${v.class}">${v.symbol} ${k}</button>`).join('');
-            const rect = btn.getBoundingClientRect();
-            pop.style.top = (rect.top + window.scrollY) + 'px'; pop.style.left = (rect.left - 130) + 'px';
+            pop.innerHTML = CONFIRMATION_STATUSES.map(status => `
+                <button onclick="window.selectConfirmation(${idx}, '${status}')" class="w-full text-center px-3 py-1.5 text-sm rounded hover:bg-gray-100">
+                    ${status}
+                </button>
+            `).join('');
+
+            const rect = e.target.getBoundingClientRect();
+            pop.style.top = rect.bottom + 5 + 'px';
+            pop.style.left = rect.left + 'px';
             pop.classList.remove('hidden');
+            document.getElementById('global-category-popover').classList.add('hidden');
         };
         
+        // Close popovers on click outside
         document.addEventListener('click', (e) => {
              if(!e.target.closest('button')) {
                  document.getElementById('global-category-popover').classList.add('hidden');
@@ -714,18 +811,36 @@
              }
         });
 
+        // Calendar Logic (Minimalist)
         window.handleManualDateInput = (val, id) => { document.getElementById(id).value = val.replace(/\//g,'-'); };
         window.showCalendar = (id) => {
+             // Use custom modal instead of prompt()
              const val = prompt("請輸入日期 (YYYY-MM-DD):", document.getElementById(id).value || new Date().toISOString().split('T')[0]);
              if(val) { document.getElementById(id).value = val; document.getElementById(id+'Display').value = val; }
         };
 
+        // Export (Keep original functionality mostly)
         window.exportToJPG = () => { 
             html2canvas(document.getElementById("capture-area"), { useCORS: true }).then(canvas => {
                 const a = document.createElement("a"); a.href = canvas.toDataURL("image/jpeg"); a.download = "plan.jpg"; a.click();
             });
         };
-        window.exportToCSV = () => { alert("CSV 功能在雲端版中暫時隱藏"); }; 
+        // Use custom modal instead of alert()
+        window.exportToCSV = () => {
+             let csv = "Date,Day,Location,Time,Cost1,Cost2,OK?,Remark\n";
+             currentTripData.itinerary.forEach(row => {
+                 const d = row.date.replace(/-/g, '/');
+                 const c1 = currentTripData.headerData.costHeader1.replace(/,/g, '');
+                 const c2 = currentTripData.headerData.costHeader2.replace(/,/g, '');
+                 csv += `${d},${row.dayNum},"${row.location.replace(/"/g, '""')}",${row.departureTime},"${row.cost1}",${row.cost2},${row.confirmation},"${row.remark.replace(/"/g, '""')}"\n`;
+             });
+             
+             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+             const link = document.createElement("a");
+             link.href = URL.createObjectURL(blob);
+             link.download = currentTripData.tripName.replace(/ /g, '_') + ".csv";
+             link.click();
+        };
 
     </script>
 </body>
