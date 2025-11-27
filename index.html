@@ -347,26 +347,28 @@ try {
         });
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                logDebug("Auth State Changed: LOGGED IN as " + user.email);
-                
-                currentUser = user;
-                document.getElementById('login-overlay').remove();
-                loginOverlay.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                
-                // Update Header UI
-                document.getElementById('user-name').textContent = user.displayName;
-                document.getElementById('user-avatar').src = user.photoURL;
-                document.getElementById('user-avatar').classList.remove('hidden');
+    if (user) {
+        logDebug("Auth State Changed: LOGGED IN as " + user.email);
+        
+        currentUser = user;
+        document.getElementById('login-overlay').remove();
+        loginOverlay.classList.add('hidden');
+        appContainer.classList.remove('hidden');
+        
+        // Update Header UI
+        document.getElementById('user-name').textContent = user.displayName || '使用者';
+        document.getElementById('user-avatar').src = user.photoURL || '';
+        document.getElementById('user-avatar').classList.remove('hidden');
 
-                // Load initial view
-                window.openCloudManager();
-            } else {
-                logDebug("Auth State Changed: LOGGED OUT");
-                currentUser = null;
-            }
-        });
+        // 關鍵修復：延遲 300ms 確保 currentUser 完全準備好
+        setTimeout(() => {
+            window.openCloudManager();
+        }, 300);
+    } else {
+        logDebug("Auth State Changed: LOGGED OUT");
+        currentUser = null;
+    }
+});
 
         // --- Firestore Logic ---
 
@@ -756,6 +758,7 @@ try {
     </script>
 </body>
 </html>
+
 
 
 
