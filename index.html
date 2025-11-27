@@ -281,17 +281,16 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        // 1. 設定 Persistence (最優先)
-        logDebug("Setting persistence to LOCAL...");
-        setPersistence(auth, browserLocalPersistence)
-            .then(() => {
-                logDebug("Persistence set successfully.");
-            })
-            .catch((error) => {
-                logDebug("Error setting persistence: " + error.message);
-            });
-
-        // --- Global State ---
+        // 關鍵修正：一定要用 async/await + 放在 signInWithRedirect 前面，且不能跳過！
+logDebug("Setting persistence to LOCAL (必須在 redirect 前完成)...");
+try {
+    await setPersistence(auth, browserLocalPersistence);
+    logDebug("Persistence 已成功設定為 LOCAL");
+} catch (error) {
+    logDebug("Persistence 設定失敗: " + error.message);
+    alert("瀏覽器設定問題，請關閉第三方 Cookie 阻擋或換瀏覽器");
+}
+                // --- Global State ---
         let currentUser = null;
         let currentTripId = null;
         let currentTripData = null;
@@ -756,3 +755,4 @@
     </script>
 </body>
 </html>
+
