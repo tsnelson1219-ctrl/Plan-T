@@ -251,7 +251,7 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, indexedDbLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
@@ -284,7 +284,7 @@
         // 關鍵修正：一定要用 async/await + 放在 signInWithRedirect 前面，且不能跳過！
 logDebug("Setting persistence to LOCAL (必須在 redirect 前完成)...");
 try {
-    await setPersistence(auth, indexedDbLocalPersistence);
+    await setPersistence(auth, browserLocalPersistence);
     logDebug("Persistence 已成功設定為 LOCAL");
 } catch (error) {
     logDebug("Persistence 設定失敗: " + error.message);
@@ -756,6 +756,7 @@ try {
     </script>
 </body>
 </html>
+
 
 
 
