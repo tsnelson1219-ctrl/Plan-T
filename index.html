@@ -351,8 +351,7 @@ try {
                 logDebug("Auth State Changed: LOGGED IN as " + user.email);
                 
                 currentUser = user;
-                // 強制隱藏登入遮罩（解決殘留問題）
-        document.getElementById('login-overlay').style.display = 'none !important';
+                document.getElementById('login-overlay').remove();
                 loginOverlay.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 
@@ -757,5 +756,6 @@ try {
     </script>
 </body>
 </html>
+
 
 
