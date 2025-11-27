@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.6)</title>
+    <title>Plan-T (Cloud v1.6 - 預覽修復版)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -27,15 +27,13 @@
         
         /* 登入遮罩樣式 */
         #login-overlay { position: fixed; inset: 0; background: #f7f9fb; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        /* 除錯區塊 */
-        #debug-console { max-height: 150px; overflow-y: auto; font-family: monospace; }
     </style>
 </head>
 <body class="min-h-screen">
 
     <!-- 登入畫面 -->
     <div id="login-overlay">
-        <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
+        <h1 class="text-4xl font-extrabold text-blue-700 mb-8 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
                 <path d="M16 2v20"></path>
                 <path d="M2 6h4"></path>
@@ -46,31 +44,43 @@
             </svg>
             Plan-T 雲端版
         </h1>
-        <p class="text-gray-600 mb-8">請登入以存取您的雲端行程</p>
         
-        <button id="google-login-btn" class="flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
-           <img src="https://www.google.com/favicon.ico" width="24" height="24" alt="Google">
-            使用 Google 帳號登入 (跳轉模式)
-        </button>
+        <div id="login-options" class="flex flex-col items-center w-full max-w-sm px-4 space-y-4">
+            <!-- 錯誤訊息區 -->
+            <div id="error-message-box" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 w-full text-sm text-red-700 mb-2"></div>
 
-        <!-- 狀態顯示與除錯區 -->
-        <div class="mt-8 w-full max-w-md px-4">
-            <p id="login-status" class="text-center text-sm font-bold text-gray-500 mb-2">等待操作...</p>
-            <div id="debug-console" class="bg-gray-800 text-green-400 text-xs p-3 rounded-lg shadow-inner w-full opacity-80">
-                <div>[System] Ready. Waiting for user...</div>
+            <!-- 選項 1: Google 登入 (正式用) -->
+            <div class="w-full">
+                <button id="google-login-btn" class="w-full flex justify-center items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
+                    使用 Google 帳號登入
+                </button>
+                <p class="text-xs text-gray-400 mt-2 text-center">推薦用於：下載後的正式環境、手機瀏覽器</p>
+            </div>
+
+            <div class="flex items-center w-full py-2">
+                <div class="flex-grow border-t border-gray-300"></div>
+                <span class="flex-shrink-0 mx-4 text-gray-400 text-sm">或是</span>
+                <div class="flex-grow border-t border-gray-300"></div>
+            </div>
+
+            <!-- 選項 2: 預覽登入 (測試用) -->
+            <div class="w-full">
+                <button id="preview-login-btn" class="w-full flex justify-center items-center gap-2 px-6 py-3 bg-blue-600 border border-transparent rounded-lg shadow-md hover:bg-blue-700 transition font-medium text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    快速體驗 (預覽環境專用)
+                </button>
+                <p class="text-xs text-gray-400 mt-2 text-center">推薦用於：目前的預覽視窗 (繞過瀏覽器限制)</p>
             </div>
         </div>
-
-        <button id="retry-btn" class="mt-4 text-sm text-blue-500 underline hidden" onclick="location.reload()">重新整理頁面</button>
     </div>
 
-    <!-- 主容器 (登入後顯示) -->
+    <!-- 主容器 -->
     <div id="app-container" class="max-w-6xl mx-auto p-4 md:p-6 hidden">
         
         <!-- 應用程式標題 -->
         <header class="mb-8 bg-white p-4 rounded-xl shadow-lg flex flex-col md:flex-row justify-between items-center relative gap-4">
             <div class="w-full md:w-auto flex justify-start gap-2">
-                 <!-- 雲端存檔按鈕 -->
                 <button onclick="window.openCloudManager()" class="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition font-medium border border-amber-200">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                     雲端行程庫
@@ -87,8 +97,8 @@
             </div>
             
             <div class="w-full md:w-auto flex justify-end items-center gap-3">
-                <!-- 使用者資訊與登出 -->
                 <div class="flex items-center gap-2">
+                    <div id="user-avatar-placeholder" class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs">U</div>
                     <img id="user-avatar" src="" alt="User" class="w-8 h-8 rounded-full border border-gray-200 hidden">
                     <span id="user-name" class="text-sm font-medium text-gray-700 hidden md:inline"></span>
                     <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded">登出</button>
@@ -99,7 +109,7 @@
         <!-- 訊息/加載指示器 -->
         <div id="message-area" class="text-center mb-4 hidden"></div>
 
-        <!-- 輸入表單區塊 (建立新行程) -->
+        <!-- 輸入表單區塊 -->
         <section id="input-form-section" class="bg-white p-6 rounded-xl shadow-lg mb-8">
             <h2 class="text-xl font-semibold mb-4 text-gray-700">建立新行程計畫</h2>
             <form id="plan-form" class="space-y-4">
@@ -109,7 +119,6 @@
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4 relative">
-                    <!-- 起始日期 -->
                     <div>
                         <label for="startDateDisplay" class="block text-sm font-medium text-gray-700">起始日期</label>
                         <div class="relative mt-1">
@@ -118,7 +127,6 @@
                             <button type="button" class="absolute inset-y-0 right-0 px-3 bg-blue-100 rounded-r-lg border border-l-0 border-gray-300 hover:bg-blue-200 z-10" onclick="showCalendar('startDate')">📅</button>
                         </div>
                     </div>
-                    <!-- 結束日期 -->
                     <div>
                         <label for="endDateDisplay" class="block text-sm font-medium text-gray-700">結束日期</label>
                         <div class="relative mt-1">
@@ -126,16 +134,6 @@
                             <input type="hidden" id="endDate" name="endDate">
                             <button type="button" class="absolute inset-y-0 right-0 px-3 bg-blue-100 rounded-r-lg border border-l-0 border-gray-300 hover:bg-blue-200 z-10" onclick="showCalendar('endDate')">📅</button>
                         </div>
-                    </div>
-                    
-                    <!-- 日曆組件 -->
-                    <div id="calendar-popover" class="absolute top-full left-0 mt-2 w-full z-20 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 hidden md:w-80 md:left-1/2 md:-translate-x-1/2">
-                        <div id="calendar-header" class="flex justify-between items-center mb-4">
-                            <button type="button" class="p-2 hover:bg-gray-100 rounded-full" onclick="changeMonth(-1)">◀</button>
-                            <span id="current-month-year" class="font-semibold text-lg"></span>
-                            <button type="button" class="p-2 hover:bg-gray-100 rounded-full" onclick="changeMonth(1)">▶</button>
-                        </div>
-                        <div id="calendar-days" class="grid grid-cols-7 gap-1 text-center"></div>
                     </div>
                 </div>
 
@@ -149,18 +147,14 @@
 
         <!-- 行程表顯示區塊 -->
         <section id="itinerary-table-section" class="hidden">
-            
-            <!-- 工具列 -->
             <div class="mb-4 flex flex-wrap justify-between items-center gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-100 no-print">
                 <div class="flex gap-2 items-center">
-                    <!-- 分享按鈕 -->
                     <button onclick="window.openShareModal()" class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-purple-500 rounded hover:bg-purple-600 shadow-sm transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                         邀請協作者
                     </button>
                     <span id="collaborators-count" class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full hidden"></span>
                 </div>
-
                 <div class="flex gap-2">
                     <button onclick="exportToJPG()" class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-500 rounded hover:bg-indigo-600">JPG</button>
                     <button onclick="exportToCSV()" class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700">CSV</button>
@@ -169,7 +163,6 @@
 
             <div id="capture-area" class="bg-white rounded-xl shadow-lg p-1">
                 <h2 id="current-trip-name" class="text-2xl font-bold my-4 text-gray-800 text-center"></h2>
-                <!-- 表格 -->
                 <div class="overflow-x-auto pb-4">
                     <table class="min-w-full divide-y divide-gray-200 table-fixed border-b border-gray-200">
                         <thead class="bg-blue-50">
@@ -211,7 +204,7 @@
                 <button onclick="window.closeCloudManager()" class="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <div class="p-4 bg-blue-50 text-sm text-gray-600">
-                點擊下方列表開啟行程。您可以與朋友分享行程 ID 或 Email 來協作。
+                點擊下方列表開啟行程。您可以與朋友分享 ID (您的 ID: <span id="my-user-id-display" class="font-mono bg-blue-100 px-1 rounded"></span>) 來協作。
             </div>
             <div id="cloud-list" class="flex-grow overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-[200px]">
                 <p class="text-center text-gray-400 mt-10">載入中...</p>
@@ -226,10 +219,10 @@
     <div id="share-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex justify-center items-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">邀請協作者</h3>
-            <p class="text-sm text-gray-600 mb-4">輸入對方的 Google Email，他就能在「雲端行程庫」看到並編輯此行程。</p>
+            <p class="text-sm text-gray-600 mb-4">輸入對方的 User ID (請對方在雲端行程庫查看 ID)。</p>
             
             <div class="flex gap-2 mb-4">
-                <input type="email" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="friend@gmail.com">
+                <input type="text" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="輸入 User ID">
                 <button onclick="window.addCollaborator()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">新增</button>
             </div>
 
@@ -251,13 +244,14 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // 加入 signInAnonymously 作為「預覽登入」的底層技術
+        import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
-        const firebaseConfig = {
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCQtd1FzIi79nzxBoYUwFMErzSqQ1ql6H8",
-            authDomain: "plan-t-18056.web.app",
+            authDomain: "plan-t-18056.firebaseapp.com",
             projectId: "plan-t-18056",
             storageBucket: "plan-t-18056.firebasestorage.app",
             messagingSenderId: "303000679644",
@@ -265,154 +259,147 @@
             measurementId: "G-GFB5L5LHW5"
         };
 
-        const logDebug = (msg) => {
-            const consoleEl = document.getElementById('debug-console');
-            const p = document.createElement('div');
-            p.textContent = `> ${msg}`;
-            consoleEl.appendChild(p);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-            console.log(msg);
-        };
-
-        // Initialize Firebase
-        logDebug("Initializing Firebase...");
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+        const googleProvider = new GoogleAuthProvider();
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // 關鍵修正：一定要用 async/await + 放在 signInWithRedirect 前面，且不能跳過！
-logDebug("Setting persistence to LOCAL (必須在 redirect 前完成)...");
-try {
-    await setPersistence(auth, browserLocalPersistence);
-    logDebug("Persistence 已成功設定為 LOCAL");
-} catch (error) {
-    logDebug("Persistence 設定失敗: " + error.message);
-    alert("瀏覽器設定問題，請關閉第三方 Cookie 阻擋或換瀏覽器");
-}
-                // --- Global State ---
+        // --- Global State ---
         let currentUser = null;
         let currentTripId = null;
         let currentTripData = null;
-        let unsubscribeTrip = null; // Listener detacher
+        let unsubscribeTrip = null; 
+
+        // --- UI References ---
+        const loginOverlay = document.getElementById('login-overlay');
+        const errorMessageBox = document.getElementById('error-message-box');
+        const appContainer = document.getElementById('app-container');
 
         // --- Auth Logic ---
-        const loginOverlay = document.getElementById('login-overlay');
-        const appContainer = document.getElementById('app-container');
-        const loginStatus = document.getElementById('login-status');
-        const retryBtn = document.getElementById('retry-btn');
+        
+        const showLoginError = (msg) => {
+            errorMessageBox.classList.remove('hidden');
+            errorMessageBox.innerHTML = `<strong>登入發生問題：</strong><br>${msg}`;
+        };
 
-        // Check for redirect result on page load using ASYNC/AWAIT
-        (async () => {
-            try {
-                logDebug("Checking redirect result...");
-                const result = await getRedirectResult(auth);
-                if (result) {
-                    logDebug("Redirect result found! User: " + result.user.email);
-                    loginStatus.textContent = `歡迎回來，${result.user.displayName}！`;
-                    loginStatus.classList.remove('hidden');
-                    loginStatus.className = "mt-4 text-sm text-green-600 font-bold";
-                } else {
-                    logDebug("No redirect result found (Normal page load).");
-                }
-            } catch (error) {
-                logDebug("Redirect Error: " + error.code + " - " + error.message);
-            }
-        })();
-
+        // Google 登入 (正式用)
         document.getElementById('google-login-btn').addEventListener('click', async () => {
             try {
-                logDebug("Start login process...");
-                loginStatus.textContent = "正在轉向 Google 登入頁面...";
-                loginStatus.classList.remove('hidden');
-                loginStatus.className = "mt-4 text-sm text-gray-500 font-bold";
-                retryBtn.classList.add('hidden');
-                
-                // USE REDIRECT
-                logDebug("Calling signInWithRedirect...");
-                await signInWithRedirect(auth, provider);
-                
+                errorMessageBox.classList.add('hidden'); // 清除舊錯誤
+                await signInWithPopup(auth, googleProvider);
             } catch (error) {
-                logDebug("Login Trigger Error: " + error.message);
-                loginStatus.textContent = "登入失敗: " + error.message;
-                loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
-                retryBtn.classList.remove('hidden');
+                console.error("Google Login Error:", error);
+                
+                if (error.code === 'auth/popup-blocked' || error.message.includes('Cross-Origin-Opener-Policy')) {
+                    showLoginError(`
+                        <strong>瀏覽器阻擋了彈出視窗 (COOP Error)</strong><br>
+                        這是因為您正在「預覽環境」中執行。此環境禁止外部彈跳視窗。<br>
+                        <span class="text-blue-700 font-bold">解決方案：</span><br>
+                        1. 請點擊下方的「快速體驗」按鈕來進行測試。<br>
+                        2. 若要使用 Google 帳號，請將此檔案下載到您的電腦後開啟。
+                    `);
+                } else if (error.code === 'auth/operation-not-allowed') {
+                     showLoginError("請至 Firebase Console 開啟 Google 登入功能。");
+                } else {
+                    showLoginError(error.message);
+                }
+            }
+        });
+
+        // 預覽登入 (測試用) - 使用匿名登入技術
+        document.getElementById('preview-login-btn').addEventListener('click', async () => {
+            try {
+                errorMessageBox.classList.add('hidden');
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Preview Login Error:", error);
+                 if (error.code === 'auth/admin-restricted-operation') {
+                    showLoginError("請至 Firebase Console > Authentication > Sign-in method 開啟 <strong>Anonymous</strong> 選項，才能使用快速體驗功能。");
+                } else {
+                    showLoginError("快速登入失敗：" + error.message);
+                }
             }
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => {
-             if(unsubscribeTrip) unsubscribeTrip(); // Stop listening
-             signOut(auth);
-             location.reload();
+             if(unsubscribeTrip) unsubscribeTrip();
+             signOut(auth).then(() => {
+                location.reload();
+             }).catch(e => alert(e.message));
         });
 
         onAuthStateChanged(auth, (user) => {
-    if (user) {
-        logDebug("Auth State Changed: LOGGED IN as " + user.email);
-        
-        currentUser = user;
-        document.getElementById('login-overlay').remove();
-        loginOverlay.classList.add('hidden');
-        appContainer.classList.remove('hidden');
-        
-        // Update Header UI
-        document.getElementById('user-name').textContent = user.displayName || '使用者';
-        document.getElementById('user-avatar').src = user.photoURL || '';
-        document.getElementById('user-avatar').classList.remove('hidden');
+            if (user) {
+                console.log("--- Login Success ---", user.uid);
+                currentUser = user;
+                loginOverlay.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                
+                // UI Update
+                let displayName = "訪客 User";
+                if (user.displayName) displayName = user.displayName;
+                else if (user.isAnonymous) displayName = "預覽測試帳號";
 
-        // 關鍵修復：延遲 300ms 確保 currentUser 完全準備好
-        setTimeout(() => {
-            window.openCloudManager();
-        }, 300);
-    } else {
-        logDebug("Auth State Changed: LOGGED OUT");
-        currentUser = null;
-    }
-});
+                document.getElementById('user-name').textContent = displayName;
+                
+                if (user.photoURL) {
+                    document.getElementById('user-avatar').src = user.photoURL;
+                    document.getElementById('user-avatar').classList.remove('hidden');
+                    document.getElementById('user-avatar-placeholder').classList.add('hidden');
+                } else {
+                    document.getElementById('user-avatar-placeholder').textContent = displayName[0].toUpperCase();
+                    document.getElementById('user-avatar').classList.add('hidden');
+                    document.getElementById('user-avatar-placeholder').classList.remove('hidden');
+                }
+
+                window.openCloudManager();
+            } else {
+                console.log("Logged Out");
+                currentUser = null;
+                loginOverlay.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        });
 
         // --- Firestore Logic ---
 
-        // 1. Create New Trip
         const createNewTrip = async (tripData) => {
+            if(!currentUser) return alert("請先登入！");
             try {
-                // IMPORTANT: Use the /artifacts/{appId}/public/data/trips path for collaborative public data
-                const appId = "default-app-id"; 
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
-
                 const docRef = await addDoc(collection(db, collectionPath), {
                     ...tripData,
                     ownerId: currentUser.uid,
-                    ownerName: currentUser.displayName,
+                    ownerName: currentUser.displayName || (currentUser.isAnonymous ? "預覽測試者" : "User"), 
                     createdAt: new Date().toISOString(),
-                    collaborators: [currentUser.email], // Add self as collaborator
+                    collaborators: [currentUser.uid], 
                     headerData: { costHeader1: '(NTD)', costHeader2: '(円)' }
                 });
                 return docRef.id;
             } catch (e) {
-                console.error("Error adding document: ", e);
+                console.error(e);
                 alert("建立失敗：" + e.message);
             }
         };
 
-        // 2. Load Trip (Real-time)
         window.loadCloudTrip = (tripId) => {
-            if (unsubscribeTrip) unsubscribeTrip(); // Detach previous listener
+            if (!currentUser) return alert("請先登入！");
+            if (unsubscribeTrip) unsubscribeTrip(); 
             currentTripId = tripId;
             
             window.closeCloudManager();
             document.getElementById('loading-spinner').classList.remove('hidden');
 
-            const appId = "default-app-id"; 
             const docPath = `artifacts/${appId}/public/data/trips/${tripId}`;
-            const tripRef = doc(db, docPath);
             
-            unsubscribeTrip = onSnapshot(tripRef, (doc) => {
+            unsubscribeTrip = onSnapshot(doc(db, docPath), (doc) => {
                 document.getElementById('loading-spinner').classList.add('hidden');
                 if (doc.exists()) {
                     currentTripData = doc.data();
                     renderItineraryTable(currentTripData.itinerary || [], currentTripData.tripName);
                     
-                    // Update header fields
                     const h1 = document.querySelector('[data-field="costHeader1"]');
                     const h2 = document.querySelector('[data-field="costHeader2"]');
                     if(h1 && currentTripData.headerData) h1.textContent = currentTripData.headerData.costHeader1;
@@ -425,20 +412,17 @@ try {
                 }
             }, (error) => {
                 console.error(error);
-                alert("讀取失敗，您可能沒有權限。"); 
+                alert("讀取失敗，權限不足。"); 
                 window.closeCurrentTrip();
             });
         };
 
-        // 3. Update Trip (Single Field or Full Itinerary)
-        const updateCloudTrip = async (newData, merge = true) => {
-            if (!currentTripId) return;
+        const updateCloudTrip = async (newData) => {
+            if (!currentUser || !currentTripId) return;
             updateSyncStatus("同步中...", "pending");
             try {
-                const appId = "default-app-id";
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
-                const tripRef = doc(db, docPath);
-                await updateDoc(tripRef, newData);
+                await updateDoc(doc(db, docPath), newData);
                 updateSyncStatus("已儲存");
             } catch (e) {
                 console.error(e);
@@ -446,19 +430,18 @@ try {
             }
         };
 
-        // 4. List User's Trips
         window.openCloudManager = async () => {
+            if (!currentUser) return;
             const listContainer = document.getElementById('cloud-list');
             const modal = document.getElementById('cloud-manager-modal');
+            document.getElementById('my-user-id-display').textContent = currentUser.uid;
+
             modal.classList.remove('hidden');
             listContainer.innerHTML = '<p class="text-center text-gray-400 mt-4">載入中...</p>';
 
             try {
-                const appId = "default-app-id"; 
                 const collectionPath = `artifacts/${appId}/public/data/trips`;
-
-                // Query trips where user is owner OR collaborator
-                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.email));
+                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.uid));
                 const querySnapshot = await getDocs(q);
 
                 listContainer.innerHTML = '';
@@ -469,46 +452,32 @@ try {
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    const item = document.createElement('div');
-                    item.className = 'bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center hover:bg-blue-50 cursor-pointer transition';
-                    item.onclick = (e) => {
-                        // Prevent triggering if delete button clicked
-                        if(e.target.closest('.delete-btn')) return;
-                        window.loadCloudTrip(doc.id);
-                    };
-                    
                     const isOwner = data.ownerId === currentUser.uid;
-                    const deleteBtn = isOwner ? `<button class="delete-btn ml-2 p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${doc.id}')">🗑️</button>` : '';
-
-                    item.innerHTML = `
-                        <div class="overflow-hidden">
+                    
+                    const div = document.createElement('div');
+                    div.className = 'bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center hover:bg-blue-50 cursor-pointer transition';
+                    div.innerHTML = `
+                        <div class="overflow-hidden" onclick="window.loadCloudTrip('${doc.id}')">
                             <div class="font-bold text-gray-800 truncate">${data.tripName}</div>
-                            <div class="text-xs text-gray-500">
-                                ${data.startDate} ~ ${data.endDate} <br>
-                                擁有者: ${isOwner ? '我' : data.ownerName}
-                            </div>
+                            <div class="text-xs text-gray-500">${data.startDate} ~ ${data.endDate} | ${isOwner ? '我' : data.ownerName}</div>
                         </div>
-                        ${deleteBtn}
+                        ${isOwner ? `<button class="p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${doc.id}')">🗑️</button>` : ''}
                     `;
-                    listContainer.appendChild(item);
+                    listContainer.appendChild(div);
                 });
-
             } catch (e) {
                 console.error(e);
-                listContainer.innerHTML = '<p class="text-red-500 text-center">載入失敗</p>';
+                listContainer.innerHTML = `<p class="text-red-500 text-center">載入失敗: ${e.message}</p>`;
             }
         };
 
-        window.closeCloudManager = () => {
-            document.getElementById('cloud-manager-modal').classList.add('hidden');
-        };
+        window.closeCloudManager = () => document.getElementById('cloud-manager-modal').classList.add('hidden');
 
         window.deleteCloudTrip = async (id) => {
-            if(confirm("確定要永久刪除此雲端行程嗎？")) { 
-                const appId = "default-app-id"; 
+            if(confirm("確定要永久刪除此行程嗎？")) { 
                 const docPath = `artifacts/${appId}/public/data/trips/${id}`;
                 await deleteDoc(doc(db, docPath));
-                window.openCloudManager(); // Refresh list
+                window.openCloudManager(); 
             }
         };
 
@@ -520,217 +489,182 @@ try {
             window.openCloudManager();
         };
 
-        // --- Collaboration Logic ---
         window.openShareModal = () => {
+            if (!currentUser || !currentTripId) return alert("請先登入並開啟行程！");
             document.getElementById('share-modal').classList.remove('hidden');
             const list = document.getElementById('collaborators-list');
             list.innerHTML = '';
-            if(currentTripData && currentTripData.collaborators) {
-                currentTripData.collaborators.forEach(email => {
+            if(currentTripData?.collaborators) {
+                currentTripData.collaborators.forEach(uid => {
                     const li = document.createElement('li');
-                    li.textContent = email;
-                    if(email === currentTripData.ownerName || (currentTripData.ownerId === currentUser.uid && email !== currentUser.email)) {
-                         // Add remove button logic if needed later
-                    }
+                    li.textContent = uid === currentUser.uid ? `${uid} (我)` : uid;
                     list.appendChild(li);
                 });
             }
         };
 
         window.addCollaborator = async () => {
-            const email = document.getElementById('share-email-input').value.trim();
-            if(!email) return;
-            if(!currentTripId) return;
-
+            const targetUid = document.getElementById('share-email-input').value.trim();
+            if(!targetUid) return;
             try {
-                const appId = "default-app-id"; 
                 const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
-
-                await updateDoc(doc(db, docPath), {
-                    collaborators: arrayUnion(email)
-                });
+                await updateDoc(doc(db, docPath), { collaborators: arrayUnion(targetUid) });
                 document.getElementById('share-email-input').value = '';
-                alert(`已邀請 ${email}`); 
-                window.openShareModal(); // Refresh list
-            } catch(e) {
-                alert("邀請失敗");
-            }
+                alert(`已邀請: ${targetUid}`); 
+                window.openShareModal(); 
+            } catch(e) { alert("邀請失敗"); }
         };
 
-        // --- UI & Helper Functions (Adapted) ---
-
+        // UI Helpers
         const updateSyncStatus = (text, type='success') => {
             const el = document.getElementById('sync-status');
             let color = type === 'success' ? 'bg-green-400' : (type === 'pending' ? 'bg-yellow-400' : 'bg-red-400');
             el.innerHTML = `<span class="w-2 h-2 rounded-full ${color} animate-pulse"></span> ${text}`;
         };
 
-        // Date Helpers
-        const dateToIsoString = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
-        const dateToDisplayString = (date) => `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
-        const isoStringToDate = (iso) => { if(!iso) return null; const p=iso.split(/[-/]/).map(Number); return new Date(p[0],p[1]-1,p[2]); };
+        const dateToIso = (d) => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        const isoToDate = (s) => { if(!s) return null; const p=s.split(/[-/]/).map(Number); return new Date(p[0],p[1]-1,p[2]); };
 
-        // Form Submission (Generate New Trip)
         document.getElementById('plan-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const tripName = document.getElementById('tripName').value.trim();
+            if (!currentUser) return alert("請先登入！");
+            const name = document.getElementById('tripName').value.trim();
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
-            // Use custom modal instead of alert()
-            if(!tripName || !start || !end) return alert("請填寫完整"); 
+            if(!name || !start || !end) return alert("請填寫完整"); 
 
-            // Generate Empty Itinerary
             const itinerary = [];
-            let curr = isoStringToDate(start);
-            const last = isoStringToDate(end);
+            let curr = isoToDate(start);
+            const last = isoToDate(end);
             let idx = 0;
             while(curr <= last) {
                  itinerary.push({
-                    date: dateToIsoString(curr),
+                    date: dateToIso(curr),
                     dayNum: idx + 1,
-                    dayOfWeek: ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][curr.getDay()],
+                    dayOfWeek: ['週日','週一','週二','週三','週四','週五','週六'][curr.getDay()],
                     location: "", departureTime: "", cost1: "", cost2: "", confirmation: "TBD", remark: "", category: ""
                  });
-                 curr.setDate(curr.getDate()+1);
+                 curr.setDate(curr.getDate() + 1);
                  idx++;
             }
 
-            // Create in Cloud
             document.getElementById('loading-spinner').classList.remove('hidden');
-            const newId = await createNewTrip({ tripName, startDate: start, endDate: end, itinerary });
-            
-            // Switch to Edit Mode
+            const newId = await createNewTrip({ tripName: name, startDate: start, endDate: end, itinerary });
             if(newId) window.loadCloudTrip(newId);
         });
 
-        // Cell Editing Logic (Auto-save to Cloud)
         window.handleCellEdit = (e) => {
-            if(!currentTripId || !currentTripData) return;
+            if(!currentTripId) return;
             const cell = e.target;
             const field = cell.dataset.field;
             const val = cell.textContent.trim();
-
             if (cell.dataset.header === 'true') {
-                 // Update Header
-                 const newHeader = { ...currentTripData.headerData, [field]: val };
-                 updateCloudTrip({ headerData: newHeader });
+                 updateCloudTrip({ headerData: { ...currentTripData.headerData, [field]: val } });
             } else {
-                 // Update Itinerary Row
-                 const idx = parseInt(cell.dataset.index);
-                 const newItinerary = [...currentTripData.itinerary];
-                 newItinerary[idx][field] = val;
-                 updateCloudTrip({ itinerary: newItinerary });
+                 const newItin = [...currentTripData.itinerary];
+                 newItin[parseInt(cell.dataset.index)][field] = val;
+                 updateCloudTrip({ itinerary: newItin });
             }
         };
-        
-        // Category & Confirmation Logic (Auto-save)
+
         window.selectCategory = (idx, cat) => {
-             const newItinerary = [...currentTripData.itinerary];
-             newItinerary[idx].category = cat;
-             updateCloudTrip({ itinerary: newItinerary });
+             const newItin = [...currentTripData.itinerary];
+             newItin[idx].category = cat;
+             updateCloudTrip({ itinerary: newItin });
              document.getElementById('global-category-popover').classList.add('hidden');
         };
 
         window.selectConfirmation = (idx, status) => {
-             const newItinerary = [...currentTripData.itinerary];
-             newItinerary[idx].confirmation = status;
-             updateCloudTrip({ itinerary: newItinerary });
+             const newItin = [...currentTripData.itinerary];
+             newItin[idx].confirmation = status;
+             updateCloudTrip({ itinerary: newItin });
              document.getElementById('global-confirmation-popover').classList.add('hidden');
         };
         
         window.insertRow = (idx, pos) => {
-             const newItinerary = [...currentTripData.itinerary];
-             const ref = newItinerary[idx];
+             const newItin = [...currentTripData.itinerary];
+             const ref = newItin[idx];
              const item = { ...ref, location:"", departureTime:"", cost1:"", cost2:"", confirmation:"TBD", remark:"", category:"" };
-             if(pos === 'before') newItinerary.splice(idx, 0, item);
-             else newItinerary.splice(idx+1, 0, item);
-             updateCloudTrip({ itinerary: newItinerary });
+             newItin.splice(pos === 'before' ? idx : idx+1, 0, item);
+             updateCloudTrip({ itinerary: newItin });
         };
         
         window.deleteRow = (idx) => {
             if(confirm("刪除此列?")) { 
-                const newItinerary = [...currentTripData.itinerary];
-                newItinerary.splice(idx, 1);
-                updateCloudTrip({ itinerary: newItinerary });
+                const newItin = [...currentTripData.itinerary];
+                newItin.splice(idx, 1);
+                updateCloudTrip({ itinerary: newItin });
             }
         };
 
-        // --- Render Logic (Simplified from original) ---
-        const CATEGORY_MAP = { "重點": { class: "bg-lime-200" }, "交通": { class: "bg-yellow-100" }, "活動區": { class: "bg-green-100" }, "事件": { class: "bg-blue-100" } };
-        const CONFIRMATION_MAP = { "O": { symbol: "✔", class: "bg-green-500 text-white" }, "X": { symbol: "✘", class: "bg-red-500 text-white" }, "TBD": { symbol: "△", class: "bg-yellow-400 text-gray-800" } };
+        const CAT_MAP = { "重點": "bg-lime-200", "交通": "bg-yellow-100", "活動區": "bg-green-100", "事件": "bg-blue-100" };
+        const CONF_MAP = { "O": {s:"✔",c:"bg-green-500 text-white"}, "X": {s:"✘",c:"bg-red-500 text-white"}, "TBD": {s:"△",c:"bg-yellow-400 text-gray-800"} };
 
-        const renderItineraryTable = (itinerary, tripName) => {
+        const renderItineraryTable = (itin, name) => {
             document.getElementById('input-form-section').classList.add('hidden');
             document.getElementById('itinerary-table-section').classList.remove('hidden');
-            document.getElementById('current-trip-name').textContent = tripName;
+            document.getElementById('current-trip-name').textContent = name;
 
             const tbody = document.getElementById('itinerary-body');
             tbody.innerHTML = '';
             
-            const processedDates = new Set();
-            const rowspans = {};
-            itinerary.forEach(i => { if(!rowspans[i.date]) rowspans[i.date]=0; rowspans[i.date]++; });
+            const pDates = new Set();
+            const rSpans = {};
+            itin.forEach(i => { rSpans[i.date] = (rSpans[i.date]||0) + 1; });
 
-            itinerary.forEach((item, index) => {
+            itin.forEach((item, idx) => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-50';
-                if (!processedDates.has(item.date) && index > 0) tr.classList.add('new-day-border-top');
+                if (!pDates.has(item.date) && idx > 0) tr.classList.add('new-day-border-top');
                 
-                // Date Column
-                if (!processedDates.has(item.date)) {
-                    tr.innerHTML += `<td rowspan="${rowspans[item.date]}" class="date-cell px-2 py-4 text-sm font-medium text-center border-r border-gray-200 bg-white sticky-col">${item.date.slice(5)}<br>${item.dayOfWeek}<br>(Day ${item.dayNum})</td>`;
-                    processedDates.add(item.date);
+                if (!pDates.has(item.date)) {
+                    tr.innerHTML += `<td rowspan="${rSpans[item.date]}" class="date-cell px-2 py-4 text-sm font-medium text-center border-r border-gray-200 bg-white sticky-col">${item.date.slice(5)}<br>${item.dayOfWeek}<br>(Day ${item.dayNum})</td>`;
+                    pDates.add(item.date);
                 }
 
-                const catClass = CATEGORY_MAP[item.category]?.class || 'bg-white';
-                const conf = CONFIRMATION_MAP[item.confirmation] || CONFIRMATION_MAP["TBD"];
+                const catC = CAT_MAP[item.category] || 'bg-white';
+                const conf = CONF_MAP[item.confirmation] || CONF_MAP["TBD"];
 
-                // Location & Controls
                 tr.innerHTML += `
                     <td class="px-3 py-4 text-sm relative location-cell-wrapper group">
                          <div class="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 row-controls z-10">
-                            <button onclick="window.insertRow(${index}, 'before')" class="text-blue-600 bg-blue-100 p-1 rounded">▲</button>
-                            <button onclick="window.insertRow(${index}, 'after')" class="text-blue-600 bg-blue-100 p-1 rounded">▼</button>
+                            <button onclick="window.insertRow(${idx}, 'before')" class="text-blue-600 bg-blue-100 p-1 rounded hover:bg-blue-300">▲</button>
+                            <button onclick="window.insertRow(${idx}, 'after')" class="text-blue-600 bg-blue-100 p-1 rounded hover:bg-blue-300">▼</button>
                         </div>
                         <div class="flex items-start">
-                            <div class="editable-cell flex-grow pl-6 p-2 border border-gray-300 rounded min-h-[2.5rem] ${catClass}" contenteditable="true" data-field="location" data-index="${index}">${item.location}</div>
-                            <button onclick="window.showCategoryMenu(${index}, this)" class="ml-1 p-1 bg-gray-100 rounded-full hover:bg-blue-200">🏷️</button>
-                            <button onclick="window.deleteRow(${index})" class="ml-1 p-1 bg-red-50 text-red-400 rounded-full hover:bg-red-200">✕</button>
+                            <div class="editable-cell flex-grow pl-6 p-2 border border-gray-300 rounded min-h-[2.5rem] ${catC}" contenteditable="true" data-field="location" data-index="${idx}">${item.location}</div>
+                            <button onclick="window.showCategoryMenu(${idx}, this)" class="ml-1 p-1 bg-gray-100 rounded-full hover:bg-blue-200">🏷️</button>
+                            <button onclick="window.deleteRow(${idx})" class="ml-1 p-1 bg-red-50 text-red-400 rounded-full hover:bg-red-200">✕</button>
                         </div>
                     </td>
-                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="departureTime" data-index="${index}">${item.departureTime}</div></td>
-                    <td class="px-3 py-4 text-sm w-24 thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost1" data-index="${index}">${item.cost1}</div></td>
-                    <td class="px-3 py-4 text-sm w-24"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost2" data-index="${index}">${item.cost2}</div></td>
-                    <td class="px-3 py-4 text-center w-16 thick-border-left"><button onclick="window.showConfirmationMenu(${index}, this)" class="w-full h-8 font-bold rounded ${conf.class}">${conf.symbol}</button></td>
-                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="remark" data-index="${index}">${item.remark}</div></td>
+                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="departureTime" data-index="${idx}">${item.departureTime}</div></td>
+                    <td class="px-3 py-4 text-sm w-24 thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost1" data-index="${idx}">${item.cost1}</div></td>
+                    <td class="px-3 py-4 text-sm w-24"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost2" data-index="${idx}">${item.cost2}</div></td>
+                    <td class="px-3 py-4 text-center w-16 thick-border-left"><button onclick="window.showConfirmationMenu(${idx}, this)" class="w-full h-8 font-bold rounded ${conf.c}">${conf.s}</button></td>
+                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="remark" data-index="${idx}">${item.remark}</div></td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            // Re-attach listeners
-            document.querySelectorAll('.editable-cell').forEach(cell => {
-                cell.addEventListener('blur', window.handleCellEdit);
-            });
+            document.querySelectorAll('.editable-cell').forEach(c => c.addEventListener('blur', window.handleCellEdit));
         };
 
-        // --- Popover UI Helpers (Simplified) ---
         window.showCategoryMenu = (idx, btn) => {
             const pop = document.getElementById('global-category-popover');
-            pop.innerHTML = Object.entries(CATEGORY_MAP).map(([k,v]) => `<button onclick="window.selectCategory(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:opacity-80 ${v.class}">${k}</button>`).join('') + `<button onclick="window.selectCategory(${idx}, '')" class="w-full text-left px-4 py-2 text-red-500">清除</button>`;
-            const rect = btn.getBoundingClientRect();
-            pop.style.top = (rect.top + window.scrollY) + 'px'; pop.style.left = (rect.right + 10) + 'px';
+            pop.innerHTML = Object.entries(CAT_MAP).map(([k,v]) => `<button onclick="window.selectCategory(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:opacity-80 ${v}">${k}</button>`).join('') + `<button onclick="window.selectCategory(${idx}, '')" class="w-full text-left px-4 py-2 text-red-500">清除</button>`;
+            const r = btn.getBoundingClientRect();
+            pop.style.top = (r.top + window.scrollY) + 'px'; pop.style.left = (r.right + 10) + 'px';
             pop.classList.remove('hidden');
         };
 
         window.showConfirmationMenu = (idx, btn) => {
             const pop = document.getElementById('global-confirmation-popover');
-            pop.innerHTML = Object.entries(CONFIRMATION_MAP).map(([k,v]) => `<button onclick="window.selectConfirmation(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:bg-gray-100 ${v.class}">${v.symbol} ${k}</button>`).join('');
-            const rect = btn.getBoundingClientRect();
-            pop.style.top = (rect.top + window.scrollY) + 'px'; pop.style.left = (rect.left - 130) + 'px';
+            pop.innerHTML = Object.entries(CONF_MAP).map(([k,v]) => `<button onclick="window.selectConfirmation(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:bg-gray-100 ${v.c}">${v.s} ${k}</button>`).join('');
+            const r = btn.getBoundingClientRect();
+            pop.style.top = (r.top + window.scrollY) + 'px'; pop.style.left = (r.left - 130) + 'px';
             pop.classList.remove('hidden');
         };
         
-        // Close popovers on click outside
         document.addEventListener('click', (e) => {
              if(!e.target.closest('button')) {
                  document.getElementById('global-category-popover').classList.add('hidden');
@@ -738,31 +672,19 @@ try {
              }
         });
 
-        // Calendar Logic (Minimalist)
         window.handleManualDateInput = (val, id) => { document.getElementById(id).value = val.replace(/\//g,'-'); };
-        window.showCalendar = (id) => {
-             // Use custom modal instead of prompt()
+        window.showCalendar = (id) => { 
              const val = prompt("請輸入日期 (YYYY-MM-DD):", document.getElementById(id).value || new Date().toISOString().split('T')[0]);
              if(val) { document.getElementById(id).value = val; document.getElementById(id+'Display').value = val; }
         };
 
-        // Export (Keep original functionality mostly)
         window.exportToJPG = () => { 
             html2canvas(document.getElementById("capture-area"), { useCORS: true }).then(canvas => {
                 const a = document.createElement("a"); a.href = canvas.toDataURL("image/jpeg"); a.download = "plan.jpg"; a.click();
             });
         };
-        // Use custom modal instead of alert()
-        window.exportToCSV = () => { alert("CSV 功能在雲端版中暫時隱藏 (可依需求加回)"); }; 
+        window.exportToCSV = () => { confirm("CSV 功能暫時隱藏"); }; 
 
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
