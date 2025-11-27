@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.5)</title>
+    <title>Plan-T (Cloud v1.6)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -27,6 +27,8 @@
         
         /* 登入遮罩樣式 */
         #login-overlay { position: fixed; inset: 0; background: #f7f9fb; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        /* 除錯區塊 */
+        #debug-console { max-height: 150px; overflow-y: auto; font-family: monospace; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -34,7 +36,6 @@
     <!-- 登入畫面 -->
     <div id="login-overlay">
         <h1 class="text-4xl font-extrabold text-blue-700 mb-6 flex items-center">
-            <!-- 修正後的 SVG Icon -->
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
                 <path d="M16 2v20"></path>
                 <path d="M2 6h4"></path>
@@ -46,12 +47,21 @@
             Plan-T 雲端版
         </h1>
         <p class="text-gray-600 mb-8">請登入以存取您的雲端行程</p>
+        
         <button id="google-login-btn" class="flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
             使用 Google 帳號登入 (跳轉模式)
         </button>
-        <p id="login-status" class="mt-4 text-sm text-gray-500 font-bold hidden"></p>
-        <button id="retry-btn" class="mt-2 text-sm text-blue-500 underline hidden" onclick="location.reload()">重新整理頁面</button>
+
+        <!-- 狀態顯示與除錯區 -->
+        <div class="mt-8 w-full max-w-md px-4">
+            <p id="login-status" class="text-center text-sm font-bold text-gray-500 mb-2">等待操作...</p>
+            <div id="debug-console" class="bg-gray-800 text-green-400 text-xs p-3 rounded-lg shadow-inner w-full opacity-80">
+                <div>[System] Ready. Waiting for user...</div>
+            </div>
+        </div>
+
+        <button id="retry-btn" class="mt-4 text-sm text-blue-500 underline hidden" onclick="location.reload()">重新整理頁面</button>
     </div>
 
     <!-- 主容器 (登入後顯示) -->
@@ -240,7 +250,6 @@
 
     <script type="module">
         // --- Firebase Imports ---
-        // Change from popup imports to redirect imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -256,11 +265,31 @@
             measurementId: "G-GFB5L5LHW5"
         };
 
+        const logDebug = (msg) => {
+            const consoleEl = document.getElementById('debug-console');
+            const p = document.createElement('div');
+            p.textContent = `> ${msg}`;
+            consoleEl.appendChild(p);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+            console.log(msg);
+        };
+
         // Initialize Firebase
+        logDebug("Initializing Firebase...");
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
+
+        // 1. 設定 Persistence (最優先)
+        logDebug("Setting persistence to LOCAL...");
+        setPersistence(auth, browserLocalPersistence)
+            .then(() => {
+                logDebug("Persistence set successfully.");
+            })
+            .catch((error) => {
+                logDebug("Error setting persistence: " + error.message);
+            });
 
         // --- Global State ---
         let currentUser = null;
@@ -277,38 +306,35 @@
         // Check for redirect result on page load using ASYNC/AWAIT
         (async () => {
             try {
+                logDebug("Checking redirect result...");
                 const result = await getRedirectResult(auth);
-                if (result?.user) {
-                    console.log("Google 登入成功（redirect 回來）:", result.user.displayName);
-                    // onAuthStateChanged 會自動處理 UI，所以這裡什麼都不用做也會跳進主畫面
-                    // 但可以加個小提示
+                if (result) {
+                    logDebug("Redirect result found! User: " + result.user.email);
                     loginStatus.textContent = `歡迎回來，${result.user.displayName}！`;
-                    loginStatus.classList.remove('hidden'); // Ensure visible
+                    loginStatus.classList.remove('hidden');
                     loginStatus.className = "mt-4 text-sm text-green-600 font-bold";
-                    setTimeout(() => loginStatus.classList.add('hidden'), 3000);
+                } else {
+                    logDebug("No redirect result found (Normal page load).");
                 }
             } catch (error) {
-                console.error("Redirect 結果錯誤（可忽略）:", error);
-                // 大部分情況這邊會噴 error.auth/invalid-credential 但其實已經登入成功了
-                // 所以不要顯示紅色錯誤，免得嚇到使用者
+                logDebug("Redirect Error: " + error.code + " - " + error.message);
             }
         })();
 
         document.getElementById('google-login-btn').addEventListener('click', async () => {
             try {
+                logDebug("Start login process...");
                 loginStatus.textContent = "正在轉向 Google 登入頁面...";
                 loginStatus.classList.remove('hidden');
                 loginStatus.className = "mt-4 text-sm text-gray-500 font-bold";
                 retryBtn.classList.add('hidden');
-
-                // Persistence
-                await setPersistence(auth, browserLocalPersistence);
                 
-                // USE REDIRECT instead of Popup to avoid COOP errors
+                // USE REDIRECT
+                logDebug("Calling signInWithRedirect...");
                 await signInWithRedirect(auth, provider);
                 
             } catch (error) {
-                console.error("Login Trigger Error:", error);
+                logDebug("Login Trigger Error: " + error.message);
                 loginStatus.textContent = "登入失敗: " + error.message;
                 loginStatus.className = "mt-4 text-sm text-red-600 font-bold block";
                 retryBtn.classList.remove('hidden');
@@ -323,7 +349,7 @@
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log("--- 登入成功！--- Auth State Changed: Logged In", user.email);
+                logDebug("Auth State Changed: LOGGED IN as " + user.email);
                 
                 currentUser = user;
                 loginOverlay.classList.add('hidden');
@@ -337,7 +363,7 @@
                 // Load initial view
                 window.openCloudManager();
             } else {
-                console.log("Auth State Changed: Logged Out");
+                logDebug("Auth State Changed: LOGGED OUT");
                 currentUser = null;
             }
         });
