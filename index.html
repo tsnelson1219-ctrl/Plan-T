@@ -1,689 +1,611 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Plan-T (Cloud v1.6 - 預覽修復版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日常火源暨避難設施自行檢查表</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f7f9fb; }
-        .editable-cell:focus { outline: 2px solid theme('colors.blue.400'); border-color: transparent; box-shadow: 0 0 0 2px theme('colors.blue.200'); }
-        .date-cell { min-width: 112px; vertical-align: middle; }
-        .new-day-border-top { border-top: 4px solid #000 !important; }
-        .thick-border-left { border-left: 2px solid #cbd5e1 !important; }
-        .row-controls { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-        td.location-cell-wrapper:focus-within .row-controls, td.location-cell-wrapper:hover .row-controls { opacity: 1; pointer-events: auto; }
-        .category-popover-menu, .confirmation-popover-menu { position: absolute; z-index: 50; }
-        .location-cell-content.bg-white { background-color: white !important; }
-        .location-cell-content { transition: background-color 0.3s; }
-        .cost-subheader-cell { background-color: theme('colors.blue.100'); padding: 8px; font-size: 0.75rem; font-weight: 500; text-align: left; border-left: 1px solid theme('colors.gray.200'); }
-        .sticky-col { position: sticky; left: 0; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); }
-        thead .sticky-col { z-index: 30; }
-        @media print { .no-print { display: none !important; } }
-        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-print-color-adjust: exact;
+        }
+
+        /* --- 螢幕顯示用 (模擬 A4) --- */
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 10mm;
+            margin: 10mm auto;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        /* 表格通用樣式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            text-align: center;
+            padding: 4px;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        /* 輸入框樣式 */
+        input[type="text"], textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            text-align: center;
+            background: transparent;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            background-color: #eef2ff;
+        }
+
+        .holiday-row {
+            background-color: #fee2e2;
+        }
         
-        /* 登入遮罩樣式 */
-        #login-overlay { position: fixed; inset: 0; background: #f7f9fb; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .instruction-text {
+            font-size: 0.75rem; 
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        .disabled-btn {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* --- 列印專用樣式 (確保單頁) --- */
+        @media print {
+            @page {
+                size: A4;
+                margin: 0; /* 關鍵：強制移除瀏覽器邊界 */
+            }
+
+            body {
+                background-color: white;
+                margin: 0;
+                padding: 0;
+            }
+
+            .page {
+                width: 210mm;
+                height: auto; /* 移除固定高度，避免強制分頁 */
+                min-height: auto;
+                margin: 0 auto;
+                padding: 5mm 8mm; /* 稍微縮減內距 */
+                border: none;
+                box-shadow: none;
+                
+                /* 關鍵縮放：縮小至 95% 以容納所有內容於一頁 */
+                transform: scale(0.95);
+                transform-origin: top center;
+                overflow: hidden; /* 防止溢出產生空白頁 */
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            /* 壓縮垂直空間 */
+            h2 {
+                font-size: 14pt;
+                margin-bottom: 5px;
+                padding-bottom: 2px;
+            }
+
+            /* 表格緊湊化 */
+            table {
+                font-size: 9pt;
+            }
+
+            th, td {
+                padding: 1px 2px; /* 極小內距，節省垂直空間 */
+                height: auto;
+                line-height: 1.1;
+            }
+            
+            /* 表頭文字稍微縮小 */
+            th.text-xs {
+                font-size: 7pt;
+                line-height: 1.1;
+            }
+
+            /* 縮小輸入框高度 */
+            input[type="text"] {
+                height: 1.1em;
+                font-size: 9pt;
+            }
+
+            /* 說明文字縮小 */
+            .instruction-text {
+                font-size: 7pt;
+                line-height: 1.2;
+                margin-top: 5px;
+                padding: 2px;
+            }
+            
+            /* 隱藏連結網址 */
+            a[href]:after {
+                content: none;
+            }
+            
+            p { margin: 0; }
+        }
     </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-    <!-- 登入畫面 -->
-    <div id="login-overlay">
-        <h1 class="text-4xl font-extrabold text-blue-700 mb-8 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
-                <path d="M16 2v20"></path>
-                <path d="M2 6h4"></path>
-                <path d="M2 10h4"></path>
-                <path d="M2 14h4"></path>
-                <path d="M2 18h4"></path>
-                <rect width="16" height="20" x="4" y="2" rx="2"></rect>
-            </svg>
-            Plan-T 雲端版
-        </h1>
-        
-        <div id="login-options" class="flex flex-col items-center w-full max-w-sm px-4 space-y-4">
-            <!-- 錯誤訊息區 -->
-            <div id="error-message-box" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 w-full text-sm text-red-700 mb-2"></div>
-
-            <!-- 選項 1: Google 登入 (正式用) -->
-            <div class="w-full">
-                <button id="google-login-btn" class="w-full flex justify-center items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 transition font-medium text-gray-700">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="24" height="24" alt="Google">
-                    使用 Google 帳號登入
-                </button>
-                <p class="text-xs text-gray-400 mt-2 text-center">推薦用於：下載後的正式環境、手機瀏覽器</p>
-            </div>
-
-            <div class="flex items-center w-full py-2">
-                <div class="flex-grow border-t border-gray-300"></div>
-                <span class="flex-shrink-0 mx-4 text-gray-400 text-sm">或是</span>
-                <div class="flex-grow border-t border-gray-300"></div>
-            </div>
-
-            <!-- 選項 2: 預覽登入 (測試用) -->
-            <div class="w-full">
-                <button id="preview-login-btn" class="w-full flex justify-center items-center gap-2 px-6 py-3 bg-blue-600 border border-transparent rounded-lg shadow-md hover:bg-blue-700 transition font-medium text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    快速體驗 (預覽環境專用)
-                </button>
-                <p class="text-xs text-gray-400 mt-2 text-center">推薦用於：目前的預覽視窗 (繞過瀏覽器限制)</p>
-            </div>
+    <!-- 控制面板 (列印時隱藏) -->
+    <div class="max-w-4xl mx-auto mt-6 mb-4 p-4 bg-white rounded shadow flex flex-wrap gap-4 items-center justify-between no-print">
+        <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold text-gray-700">檢查表產生器</h1>
+            <input type="number" id="yearInput" class="border rounded p-1 w-20" min="2020" max="2030">
+            <span>年</span>
+            <select id="monthInput" class="border rounded p-1">
+                <option value="0">1月</option><option value="1">2月</option><option value="2">3月</option>
+                <option value="3">4月</option><option value="4">5月</option><option value="5">6月</option>
+                <option value="6">7月</option><option value="7">8月</option><option value="8">9月</option>
+                <option value="9">10月</option><option value="10">11月</option><option value="11">12月</option>
+            </select>
+        </div>
+        <div class="flex gap-2 items-center flex-wrap">
+            <button id="undoBtn" onclick="undo()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm disabled-btn" disabled>上一步</button>
+            <button id="redoBtn" onclick="redo()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm disabled-btn" disabled>下一步</button>
+            <button onclick="resetData()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">重置當月</button>
+            <button onclick="saveData()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">儲存</button>
+            <button onclick="exportToImage()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">下載 JPG</button>
+            <button onclick="window.print()" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-bold">列印 / PDF</button>
+        </div>
+        <div class="w-full text-xs text-gray-500 mt-1">
+            * 提示：點擊「日期/星期」欄位可將該日手動標記為「假日」，點擊表格內容可編輯。
         </div>
     </div>
 
-    <!-- 主容器 -->
-    <div id="app-container" class="max-w-6xl mx-auto p-4 md:p-6 hidden">
-        
-        <!-- 應用程式標題 -->
-        <header class="mb-8 bg-white p-4 rounded-xl shadow-lg flex flex-col md:flex-row justify-between items-center relative gap-4">
-            <div class="w-full md:w-auto flex justify-start gap-2">
-                <button onclick="window.openCloudManager()" class="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition font-medium border border-amber-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                    雲端行程庫
-                </button>
+    <!-- 模擬 A4 紙張區域 -->
+    <div id="captureArea" class="page">
+        <!-- 標題 -->
+        <div class="text-center mb-2">
+            <h2 class="text-2xl font-bold border-b-2 border-black inline-block pb-1">日常火源暨避難設施自行檢查表 (每週)</h2>
+        </div>
+
+        <!-- 資訊欄 (同一行對齊修正) -->
+        <div class="flex items-center justify-between mb-2 text-sm font-bold w-full">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center">
+                    <span class="whitespace-nowrap">實施人員：</span>
+                    <input type="text" id="inspectorName" class="border-b border-black w-32 text-center px-1" placeholder="輸入姓名">
+                </div>
+                <div class="flex items-center">
+                    <span class="whitespace-nowrap">負責區域：</span>
+                    <input type="text" id="areaName" class="border-b border-black w-48 text-center px-1" value="辦公區域">
+                </div>
             </div>
+            <div class="flex items-center whitespace-nowrap">
+                <span>月份：<span id="displayYear"></span>年 <span id="displayMonth"></span>月</span>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width: 45px;">日期</th>
+                    <th rowspan="2" style="width: 35px;">星期</th>
+                    <th colspan="3" class="bg-orange-100">日常火源</th>
+                    <th colspan="4" class="bg-green-100">避難設施</th>
+                    <th rowspan="2" style="width: 80px;">備註<br>(異常處置)</th>
+                </tr>
+                <tr>
+                    <!-- Fire Source Items -->
+                    <th class="text-xs">不需使用電器<br>關閉電源及<br>拔除插頭</th>
+                    <th class="text-xs">其他可燃物<br>管理</th>
+                    <th class="text-xs">電器設備電線<br>外觀及使用<br>情形</th>
+                    <!-- Evacuation Items -->
+                    <th class="text-xs">入門及門把<br>作動是否正常</th>
+                    <th class="text-xs">通道無堆積<br>妨礙緊急出口<br>避難逃生物品</th>
+                    <th class="text-xs">逃生標示<br>是否常亮</th>
+                    <th class="text-xs">通道有確保<br>必要之寬度<br>(0.8m以上)</th>
+                </tr>
+            </thead>
+            <tbody id="checklistBody">
+                <!-- Javascript will populate this -->
+            </tbody>
+        </table>
+
+        <!-- 頁尾說明 -->
+        <div class="mt-2 border border-black p-2 instruction-text">
+            <div class="font-bold mb-1">填寫說明:</div>
             
-            <div class="flex flex-col items-center">
-                <h1 class="text-2xl md:text-3xl font-extrabold text-blue-700 tracking-tight flex items-center justify-center">
-                    Plan-T (Cloud)
-                </h1>
-                <span id="sync-status" class="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-gray-300"></span> 準備就緒
-                </span>
-            </div>
-            
-            <div class="w-full md:w-auto flex justify-end items-center gap-3">
-                <div class="flex items-center gap-2">
-                    <div id="user-avatar-placeholder" class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs">U</div>
-                    <img id="user-avatar" src="" alt="User" class="w-8 h-8 rounded-full border border-gray-200 hidden">
-                    <span id="user-name" class="text-sm font-medium text-gray-700 hidden md:inline"></span>
-                    <button id="logout-btn" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded">登出</button>
-                </div>
-            </div>
-        </header>
-
-        <!-- 訊息/加載指示器 -->
-        <div id="message-area" class="text-center mb-4 hidden"></div>
-
-        <!-- 輸入表單區塊 -->
-        <section id="input-form-section" class="bg-white p-6 rounded-xl shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-gray-700">建立新行程計畫</h2>
-            <form id="plan-form" class="space-y-4">
-                <div>
-                    <label for="tripName" class="block text-sm font-medium text-gray-700">計畫名稱</label>
-                    <input type="text" id="tripName" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="輸入行程標題，例如：日本關西五日遊">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4 relative">
-                    <div>
-                        <label for="startDateDisplay" class="block text-sm font-medium text-gray-700">起始日期</label>
-                        <div class="relative mt-1">
-                            <input type="text" id="startDateDisplay" required class="block w-full rounded-l-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white" placeholder="YYYY/MM/DD" onchange="handleManualDateInput(this.value, 'startDate')">
-                            <input type="hidden" id="startDate" name="startDate">
-                            <button type="button" class="absolute inset-y-0 right-0 px-3 bg-blue-100 rounded-r-lg border border-l-0 border-gray-300 hover:bg-blue-200 z-10" onclick="showCalendar('startDate')">📅</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label for="endDateDisplay" class="block text-sm font-medium text-gray-700">結束日期</label>
-                        <div class="relative mt-1">
-                            <input type="text" id="endDateDisplay" required class="block w-full rounded-l-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white" placeholder="YYYY/MM/DD" onchange="handleManualDateInput(this.value, 'endDate')">
-                            <input type="hidden" id="endDate" name="endDate">
-                            <button type="button" class="absolute inset-y-0 right-0 px-3 bg-blue-100 rounded-r-lg border border-l-0 border-gray-300 hover:bg-blue-200 z-10" onclick="showCalendar('endDate')">📅</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex gap-4 pt-2">
-                    <button type="submit" id="generate-button" class="w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition duration-150">
-                        開始規劃
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- 行程表顯示區塊 -->
-        <section id="itinerary-table-section" class="hidden">
-            <div class="mb-4 flex flex-wrap justify-between items-center gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-100 no-print">
-                <div class="flex gap-2 items-center">
-                    <button onclick="window.openShareModal()" class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-purple-500 rounded hover:bg-purple-600 shadow-sm transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                        邀請協作者
-                    </button>
-                    <span id="collaborators-count" class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full hidden"></span>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="exportToJPG()" class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-500 rounded hover:bg-indigo-600">JPG</button>
-                    <button onclick="exportToCSV()" class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700">CSV</button>
-                </div>
+            <div class="font-bold">1. 日常火源</div>
+            <div class="pl-2 mb-1">
+                (1) 如有異常現象，應立即進行檢修及報告部門主管。<br>
+                (2) 用火設備之使用情形除表列項目外，請依實際使用狀況於其他類增列查檢項目，用火設備指電氣工具、能發生燃燒或熱之設備、具產生明火、悶火或具有迅速延燒性能等設備和物品。<br>
+                (3) 電器設備配線包括各類電器本身之配線或使用之延長線，需檢查以下情形: 1.電器插頭要插牢，不可過載使用。2.適時檢查電線是否破損。3.使用高功率電器若需離開，一定要關閉電源。4.使用電熱器時，應保持離可燃物一定距離。<br>
+                (4) 可燃物管理指溶劑、化學品、油品等應和用火設備或電器保持一定距離。<br>
+                (5) 符號說明：“/”→無該項設備、“O”→正常、“△” 立即改善後符合規定、“X”→不正常、無法使用、損壞或未依規定且無法立即改善。
             </div>
 
-            <div id="capture-area" class="bg-white rounded-xl shadow-lg p-1">
-                <h2 id="current-trip-name" class="text-2xl font-bold my-4 text-gray-800 text-center"></h2>
-                <div class="overflow-x-auto pb-4">
-                    <table class="min-w-full divide-y divide-gray-200 table-fixed border-b border-gray-200">
-                        <thead class="bg-blue-50">
-                            <tr>
-                                <th rowspan="2" class="w-28 px-2 py-3 text-center text-xs font-bold text-gray-500 uppercase border-r border-gray-200 align-bottom sticky-col bg-blue-50">Date</th>
-                                <th rowspan="2" class="w-1/4 px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase align-bottom">Location</th>
-                                <th rowspan="2" class="w-24 px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase align-bottom thick-border-left">Time</th>
-                                <th colspan="2" class="w-48 px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b border-gray-200 thick-border-left">Cost</th>
-                                <th rowspan="2" class="w-16 px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase align-bottom thick-border-left">OK?</th>
-                                <th rowspan="2" class="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase align-bottom thick-border-left">Remark</th>
-                            </tr>
-                            <tr>
-                                <th class="w-24 cost-subheader-cell editable-cell thick-border-left" contenteditable="true" data-field="costHeader1" data-header="true">(NTD)</th>
-                                <th class="w-24 cost-subheader-cell editable-cell" contenteditable="true" data-field="costHeader2" data-header="true">(円)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="itinerary-body" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
-                </div>
+            <div class="font-bold">2. 避難設施</div>
+            <div class="pl-2 mb-1">
+                (1) 符號說明: “O” 正常、“△”→改善中、“X”→不正常、無法使用、無法改善。
             </div>
 
-            <div class="mt-6 text-center no-print">
-                 <button onclick="window.closeCurrentTrip()" class="py-2 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">關閉目前行程 (回到主選單)</button>
-            </div>
-        </section>
+            <div class="mt-1 font-bold">本資料將留存3年備查。</div>
 
-        <!-- 加載動畫 -->
-        <div id="loading-spinner" class="hidden text-center p-8 fixed inset-0 bg-white/80 z-[60] flex flex-col justify-center items-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-            <p id="loading-text" class="mt-3 text-blue-600 font-medium">載入中...</p>
-        </div>
-    </div>
-
-    <!-- 雲端存檔列表 Modal -->
-    <div id="cloud-manager-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex justify-center items-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <h3 class="text-lg font-bold text-gray-800">雲端行程庫</h3>
-                <button onclick="window.closeCloudManager()" class="text-gray-500 hover:text-gray-700">✕</button>
-            </div>
-            <div class="p-4 bg-blue-50 text-sm text-gray-600">
-                點擊下方列表開啟行程。您可以與朋友分享 ID (您的 ID: <span id="my-user-id-display" class="font-mono bg-blue-100 px-1 rounded"></span>) 來協作。
-            </div>
-            <div id="cloud-list" class="flex-grow overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-[200px]">
-                <p class="text-center text-gray-400 mt-10">載入中...</p>
-            </div>
-             <div class="p-4 border-t border-gray-200 bg-white">
-                <button onclick="window.closeCloudManager(); document.getElementById('input-form-section').classList.remove('hidden');" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">建立新行程</button>
+            <div class="mt-3 flex justify-end items-end gap-4 text-sm">
+                <div class="font-bold">部門主管簽章：</div>
+                <div class="border-b border-black w-40 h-8"></div>
             </div>
         </div>
     </div>
 
-    <!-- 分享 Modal -->
-    <div id="share-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex justify-center items-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">邀請協作者</h3>
-            <p class="text-sm text-gray-600 mb-4">輸入對方的 User ID (請對方在雲端行程庫查看 ID)。</p>
-            
-            <div class="flex gap-2 mb-4">
-                <input type="text" id="share-email-input" class="flex-1 border border-gray-300 rounded-lg p-2" placeholder="輸入 User ID">
-                <button onclick="window.addCollaborator()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">新增</button>
-            </div>
-
-            <div class="mb-4">
-                <h4 class="font-medium text-gray-700 mb-2">目前的成員：</h4>
-                <ul id="collaborators-list" class="text-sm text-gray-600 space-y-1"></ul>
-            </div>
-
-            <div class="text-right">
-                <button onclick="document.getElementById('share-modal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">關閉</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 類別/確認 Popover -->
-    <div id="global-category-popover" class="hidden category-popover-menu w-40 bg-white border border-gray-200 rounded-lg shadow-xl p-1 z-50"></div>
-    <div id="global-confirmation-popover" class="hidden confirmation-popover-menu w-32 bg-white border border-gray-200 rounded-lg shadow-xl p-1 z-50"></div>
-
-    <script type="module">
-        // --- Firebase Imports ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // 加入 signInAnonymously 作為「預覽登入」的底層技術
-        import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, collection, addDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        // --- Firebase Config ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyCQtd1FzIi79nzxBoYUwFMErzSqQ1ql6H8",
-            authDomain: "plan-t-18056.firebaseapp.com",
-            projectId: "plan-t-18056",
-            storageBucket: "plan-t-18056.firebasestorage.app",
-            messagingSenderId: "303000679644",
-            appId: "1:303000679644:web:d37e006d0eb22921a03019",
-            measurementId: "G-GFB5L5LHW5"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const googleProvider = new GoogleAuthProvider();
+    <script>
+        // --- 狀態管理 ---
+        const today = new Date();
+        let currentYear = today.getFullYear();
+        let currentMonth = today.getMonth(); // 0-11
+        let manualHolidays = {}; 
+        let customValues = {}; 
         
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // --- Undo/Redo 堆疊 ---
+        const MAX_HISTORY = 20;
+        let undoStack = [];
+        let redoStack = [];
 
-        // --- Global State ---
-        let currentUser = null;
-        let currentTripId = null;
-        let currentTripData = null;
-        let unsubscribeTrip = null; 
+        // --- DOM 元素 ---
+        const yearInput = document.getElementById('yearInput');
+        const monthInput = document.getElementById('monthInput');
+        const tbody = document.getElementById('checklistBody');
+        const displayYear = document.getElementById('displayYear');
+        const displayMonth = document.getElementById('displayMonth');
+        const inspectorName = document.getElementById('inspectorName');
+        const areaName = document.getElementById('areaName');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
 
-        // --- UI References ---
-        const loginOverlay = document.getElementById('login-overlay');
-        const errorMessageBox = document.getElementById('error-message-box');
-        const appContainer = document.getElementById('app-container');
+        // --- 歷史紀錄管理 ---
+        function takeSnapshot(clearRedo = true) {
+            const currentState = JSON.stringify({ manualHolidays, customValues, currentYear, currentMonth });
+            const lastState = undoStack.length > 0 ? JSON.stringify(undoStack[undoStack.length - 1].serializedState) : null;
 
-        // --- Auth Logic ---
-        
-        const showLoginError = (msg) => {
-            errorMessageBox.classList.remove('hidden');
-            errorMessageBox.innerHTML = `<strong>登入發生問題：</strong><br>${msg}`;
-        };
+            if (currentState !== lastState) {
+                undoStack.push({
+                    serializedState: currentState,
+                    state: { 
+                        manualHolidays: JSON.parse(JSON.stringify(manualHolidays)),
+                        customValues: JSON.parse(JSON.stringify(customValues)) 
+                    },
+                    year: currentYear,
+                    month: currentMonth
+                });
+                if (undoStack.length > MAX_HISTORY) undoStack.shift();
+                if (clearRedo) redoStack = [];
+                updateHistoryButtons();
+            }
+        }
 
-        // Google 登入 (正式用)
-        document.getElementById('google-login-btn').addEventListener('click', async () => {
-            try {
-                errorMessageBox.classList.add('hidden'); // 清除舊錯誤
-                await signInWithPopup(auth, googleProvider);
-            } catch (error) {
-                console.error("Google Login Error:", error);
-                
-                if (error.code === 'auth/popup-blocked' || error.message.includes('Cross-Origin-Opener-Policy')) {
-                    showLoginError(`
-                        <strong>瀏覽器阻擋了彈出視窗 (COOP Error)</strong><br>
-                        這是因為您正在「預覽環境」中執行。此環境禁止外部彈跳視窗。<br>
-                        <span class="text-blue-700 font-bold">解決方案：</span><br>
-                        1. 請點擊下方的「快速體驗」按鈕來進行測試。<br>
-                        2. 若要使用 Google 帳號，請將此檔案下載到您的電腦後開啟。
-                    `);
-                } else if (error.code === 'auth/operation-not-allowed') {
-                     showLoginError("請至 Firebase Console 開啟 Google 登入功能。");
+        function applySnapshot(snapshot) {
+            manualHolidays = snapshot.state.manualHolidays;
+            customValues = snapshot.state.customValues;
+            
+            if (currentYear !== snapshot.year || currentMonth !== snapshot.month) {
+                currentYear = snapshot.year;
+                currentMonth = snapshot.month;
+                yearInput.value = currentYear;
+                monthInput.value = currentMonth;
+            }
+            
+            renderTable();
+            saveData(false); 
+        }
+
+        function undo() {
+            if (undoStack.length <= 1) return;
+            const currentState = undoStack.pop();
+            redoStack.push(currentState);
+            const previousState = undoStack[undoStack.length - 1];
+            applySnapshot(previousState);
+            updateHistoryButtons();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            const nextState = redoStack.pop();
+            manualHolidays = nextState.state.manualHolidays;
+            customValues = nextState.state.customValues;
+            undoStack.push(nextState); 
+            if (currentYear !== nextState.year || currentMonth !== nextState.month) {
+                currentYear = nextState.year;
+                currentMonth = nextState.month;
+                yearInput.value = currentYear;
+                monthInput.value = currentMonth;
+            }
+            renderTable();
+            saveData(false);
+            updateHistoryButtons();
+        }
+
+        function updateHistoryButtons() {
+            undoBtn.disabled = undoStack.length <= 1;
+            undoBtn.classList.toggle('disabled-btn', undoStack.length <= 1);
+            redoBtn.disabled = redoStack.length === 0;
+            redoBtn.classList.toggle('disabled-btn', redoStack.length === 0);
+        }
+
+        // --- 初始化 ---
+        function init() {
+            yearInput.value = currentYear;
+            monthInput.value = currentMonth;
+            
+            yearInput.addEventListener('change', updateTable);
+            monthInput.addEventListener('change', updateTable);
+            inspectorName.addEventListener('input', () => { saveData(); takeSnapshot(); });
+            areaName.addEventListener('input', () => { saveData(); takeSnapshot(); });
+
+            loadData();
+            takeSnapshot(false);
+            renderTable();
+        }
+
+        function updateTable() {
+            currentYear = parseInt(yearInput.value);
+            currentMonth = parseInt(monthInput.value);
+            renderTable();
+            saveData(); 
+            takeSnapshot();
+        }
+
+        // --- 核心邏輯 ---
+        function isWeekend(date) {
+            const day = date.getDay();
+            return day === 0 || day === 6; 
+        }
+
+        function getDateKey(date) {
+            return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')}`;
+        }
+
+        function isHoliday(date) {
+            if (isWeekend(date)) return true;
+            const key = getDateKey(date);
+            return manualHolidays[key] === true;
+        }
+
+        function getDaysInMonth(year, month) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+
+        function calculateStatusMap(year, month) {
+            const daysInMonth = getDaysInMonth(year, month);
+            const statusMap = {}; 
+            let lastWorkingDay = -1;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                let date = new Date(year, month, d);
+                if (isHoliday(date)) {
+                    statusMap[d] = 'REST';
                 } else {
-                    showLoginError(error.message);
+                    statusMap[d] = 'NONE';
+                    lastWorkingDay = d;
                 }
             }
-        });
 
-        // 預覽登入 (測試用) - 使用匿名登入技術
-        document.getElementById('preview-login-btn').addEventListener('click', async () => {
-            try {
-                errorMessageBox.classList.add('hidden');
-                await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Preview Login Error:", error);
-                 if (error.code === 'auth/admin-restricted-operation') {
-                    showLoginError("請至 Firebase Console > Authentication > Sign-in method 開啟 <strong>Anonymous</strong> 選項，才能使用快速體驗功能。");
-                } else {
-                    showLoginError("快速登入失敗：" + error.message);
+            for (let d = 1; d <= daysInMonth; d++) {
+                let date = new Date(year, month, d);
+                if (date.getDay() === 5) { // Friday
+                    let checkDayCandidate = d;
+                    while (checkDayCandidate > 0 && statusMap[checkDayCandidate] === 'REST') {
+                        checkDayCandidate--;
+                    }
+                    if (checkDayCandidate > 0) {
+                        statusMap[checkDayCandidate] = 'CHECK';
+                    }
                 }
             }
-        });
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
-             if(unsubscribeTrip) unsubscribeTrip();
-             signOut(auth).then(() => {
-                location.reload();
-             }).catch(e => alert(e.message));
-        });
+            if (lastWorkingDay > 0) {
+                statusMap[lastWorkingDay] = 'CHECK';
+            }
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log("--- Login Success ---", user.uid);
-                currentUser = user;
-                loginOverlay.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                
-                // UI Update
-                let displayName = "訪客 User";
-                if (user.displayName) displayName = user.displayName;
-                else if (user.isAnonymous) displayName = "預覽測試帳號";
+            return statusMap;
+        }
 
-                document.getElementById('user-name').textContent = displayName;
-                
-                if (user.photoURL) {
-                    document.getElementById('user-avatar').src = user.photoURL;
-                    document.getElementById('user-avatar').classList.remove('hidden');
-                    document.getElementById('user-avatar-placeholder').classList.add('hidden');
-                } else {
-                    document.getElementById('user-avatar-placeholder').textContent = displayName[0].toUpperCase();
-                    document.getElementById('user-avatar').classList.add('hidden');
-                    document.getElementById('user-avatar-placeholder').classList.remove('hidden');
-                }
-
-                window.openCloudManager();
+        function toggleHoliday(day) {
+            const date = new Date(currentYear, currentMonth, day);
+            const key = getDateKey(date);
+            if (manualHolidays[key]) {
+                delete manualHolidays[key];
             } else {
-                console.log("Logged Out");
-                currentUser = null;
-                loginOverlay.classList.remove('hidden');
-                appContainer.classList.add('hidden');
+                manualHolidays[key] = true;
             }
-        });
+            saveData();
+            takeSnapshot();
+            renderTable();
+        }
 
-        // --- Firestore Logic ---
-
-        const createNewTrip = async (tripData) => {
-            if(!currentUser) return alert("請先登入！");
-            try {
-                const collectionPath = `artifacts/${appId}/public/data/trips`;
-                const docRef = await addDoc(collection(db, collectionPath), {
-                    ...tripData,
-                    ownerId: currentUser.uid,
-                    ownerName: currentUser.displayName || (currentUser.isAnonymous ? "預覽測試者" : "User"), 
-                    createdAt: new Date().toISOString(),
-                    collaborators: [currentUser.uid], 
-                    headerData: { costHeader1: '(NTD)', costHeader2: '(円)' }
-                });
-                return docRef.id;
-            } catch (e) {
-                console.error(e);
-                alert("建立失敗：" + e.message);
-            }
-        };
-
-        window.loadCloudTrip = (tripId) => {
-            if (!currentUser) return alert("請先登入！");
-            if (unsubscribeTrip) unsubscribeTrip(); 
-            currentTripId = tripId;
-            
-            window.closeCloudManager();
-            document.getElementById('loading-spinner').classList.remove('hidden');
-
-            const docPath = `artifacts/${appId}/public/data/trips/${tripId}`;
-            
-            unsubscribeTrip = onSnapshot(doc(db, docPath), (doc) => {
-                document.getElementById('loading-spinner').classList.add('hidden');
-                if (doc.exists()) {
-                    currentTripData = doc.data();
-                    renderItineraryTable(currentTripData.itinerary || [], currentTripData.tripName);
-                    
-                    const h1 = document.querySelector('[data-field="costHeader1"]');
-                    const h2 = document.querySelector('[data-field="costHeader2"]');
-                    if(h1 && currentTripData.headerData) h1.textContent = currentTripData.headerData.costHeader1;
-                    if(h2 && currentTripData.headerData) h2.textContent = currentTripData.headerData.costHeader2;
-
-                    updateSyncStatus("已同步");
-                } else {
-                    alert("此行程已被刪除"); 
-                    window.closeCurrentTrip();
-                }
-            }, (error) => {
-                console.error(error);
-                alert("讀取失敗，權限不足。"); 
-                window.closeCurrentTrip();
-            });
-        };
-
-        const updateCloudTrip = async (newData) => {
-            if (!currentUser || !currentTripId) return;
-            updateSyncStatus("同步中...", "pending");
-            try {
-                const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
-                await updateDoc(doc(db, docPath), newData);
-                updateSyncStatus("已儲存");
-            } catch (e) {
-                console.error(e);
-                updateSyncStatus("儲存失敗", "error");
-            }
-        };
-
-        window.openCloudManager = async () => {
-            if (!currentUser) return;
-            const listContainer = document.getElementById('cloud-list');
-            const modal = document.getElementById('cloud-manager-modal');
-            document.getElementById('my-user-id-display').textContent = currentUser.uid;
-
-            modal.classList.remove('hidden');
-            listContainer.innerHTML = '<p class="text-center text-gray-400 mt-4">載入中...</p>';
-
-            try {
-                const collectionPath = `artifacts/${appId}/public/data/trips`;
-                const q = query(collection(db, collectionPath), where("collaborators", "array-contains", currentUser.uid));
-                const querySnapshot = await getDocs(q);
-
-                listContainer.innerHTML = '';
-                if (querySnapshot.empty) {
-                    listContainer.innerHTML = '<p class="text-center text-gray-500 mt-4">您目前沒有雲端行程。</p>';
-                    return;
-                }
-
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const isOwner = data.ownerId === currentUser.uid;
-                    
-                    const div = document.createElement('div');
-                    div.className = 'bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center hover:bg-blue-50 cursor-pointer transition';
-                    div.innerHTML = `
-                        <div class="overflow-hidden" onclick="window.loadCloudTrip('${doc.id}')">
-                            <div class="font-bold text-gray-800 truncate">${data.tripName}</div>
-                            <div class="text-xs text-gray-500">${data.startDate} ~ ${data.endDate} | ${isOwner ? '我' : data.ownerName}</div>
-                        </div>
-                        ${isOwner ? `<button class="p-2 text-red-400 hover:text-red-600 z-10" onclick="window.deleteCloudTrip('${doc.id}')">🗑️</button>` : ''}
-                    `;
-                    listContainer.appendChild(div);
-                });
-            } catch (e) {
-                console.error(e);
-                listContainer.innerHTML = `<p class="text-red-500 text-center">載入失敗: ${e.message}</p>`;
-            }
-        };
-
-        window.closeCloudManager = () => document.getElementById('cloud-manager-modal').classList.add('hidden');
-
-        window.deleteCloudTrip = async (id) => {
-            if(confirm("確定要永久刪除此行程嗎？")) { 
-                const docPath = `artifacts/${appId}/public/data/trips/${id}`;
-                await deleteDoc(doc(db, docPath));
-                window.openCloudManager(); 
-            }
-        };
-
-        window.closeCurrentTrip = () => {
-            if (unsubscribeTrip) unsubscribeTrip();
-            currentTripId = null;
-            document.getElementById('itinerary-table-section').classList.add('hidden');
-            document.getElementById('input-form-section').classList.add('hidden');
-            window.openCloudManager();
-        };
-
-        window.openShareModal = () => {
-            if (!currentUser || !currentTripId) return alert("請先登入並開啟行程！");
-            document.getElementById('share-modal').classList.remove('hidden');
-            const list = document.getElementById('collaborators-list');
-            list.innerHTML = '';
-            if(currentTripData?.collaborators) {
-                currentTripData.collaborators.forEach(uid => {
-                    const li = document.createElement('li');
-                    li.textContent = uid === currentUser.uid ? `${uid} (我)` : uid;
-                    list.appendChild(li);
-                });
-            }
-        };
-
-        window.addCollaborator = async () => {
-            const targetUid = document.getElementById('share-email-input').value.trim();
-            if(!targetUid) return;
-            try {
-                const docPath = `artifacts/${appId}/public/data/trips/${currentTripId}`;
-                await updateDoc(doc(db, docPath), { collaborators: arrayUnion(targetUid) });
-                document.getElementById('share-email-input').value = '';
-                alert(`已邀請: ${targetUid}`); 
-                window.openShareModal(); 
-            } catch(e) { alert("邀請失敗"); }
-        };
-
-        // UI Helpers
-        const updateSyncStatus = (text, type='success') => {
-            const el = document.getElementById('sync-status');
-            let color = type === 'success' ? 'bg-green-400' : (type === 'pending' ? 'bg-yellow-400' : 'bg-red-400');
-            el.innerHTML = `<span class="w-2 h-2 rounded-full ${color} animate-pulse"></span> ${text}`;
-        };
-
-        const dateToIso = (d) => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        const isoToDate = (s) => { if(!s) return null; const p=s.split(/[-/]/).map(Number); return new Date(p[0],p[1]-1,p[2]); };
-
-        document.getElementById('plan-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!currentUser) return alert("請先登入！");
-            const name = document.getElementById('tripName').value.trim();
-            const start = document.getElementById('startDate').value;
-            const end = document.getElementById('endDate').value;
-            if(!name || !start || !end) return alert("請填寫完整"); 
-
-            const itinerary = [];
-            let curr = isoToDate(start);
-            const last = isoToDate(end);
-            let idx = 0;
-            while(curr <= last) {
-                 itinerary.push({
-                    date: dateToIso(curr),
-                    dayNum: idx + 1,
-                    dayOfWeek: ['週日','週一','週二','週三','週四','週五','週六'][curr.getDay()],
-                    location: "", departureTime: "", cost1: "", cost2: "", confirmation: "TBD", remark: "", category: ""
-                 });
-                 curr.setDate(curr.getDate() + 1);
-                 idx++;
-            }
-
-            document.getElementById('loading-spinner').classList.remove('hidden');
-            const newId = await createNewTrip({ tripName: name, startDate: start, endDate: end, itinerary });
-            if(newId) window.loadCloudTrip(newId);
-        });
-
-        window.handleCellEdit = (e) => {
-            if(!currentTripId) return;
-            const cell = e.target;
-            const field = cell.dataset.field;
-            const val = cell.textContent.trim();
-            if (cell.dataset.header === 'true') {
-                 updateCloudTrip({ headerData: { ...currentTripData.headerData, [field]: val } });
-            } else {
-                 const newItin = [...currentTripData.itinerary];
-                 newItin[parseInt(cell.dataset.index)][field] = val;
-                 updateCloudTrip({ itinerary: newItin });
-            }
-        };
-
-        window.selectCategory = (idx, cat) => {
-             const newItin = [...currentTripData.itinerary];
-             newItin[idx].category = cat;
-             updateCloudTrip({ itinerary: newItin });
-             document.getElementById('global-category-popover').classList.add('hidden');
-        };
-
-        window.selectConfirmation = (idx, status) => {
-             const newItin = [...currentTripData.itinerary];
-             newItin[idx].confirmation = status;
-             updateCloudTrip({ itinerary: newItin });
-             document.getElementById('global-confirmation-popover').classList.add('hidden');
-        };
-        
-        window.insertRow = (idx, pos) => {
-             const newItin = [...currentTripData.itinerary];
-             const ref = newItin[idx];
-             const item = { ...ref, location:"", departureTime:"", cost1:"", cost2:"", confirmation:"TBD", remark:"", category:"" };
-             newItin.splice(pos === 'before' ? idx : idx+1, 0, item);
-             updateCloudTrip({ itinerary: newItin });
-        };
-        
-        window.deleteRow = (idx) => {
-            if(confirm("刪除此列?")) { 
-                const newItin = [...currentTripData.itinerary];
-                newItin.splice(idx, 1);
-                updateCloudTrip({ itinerary: newItin });
-            }
-        };
-
-        const CAT_MAP = { "重點": "bg-lime-200", "交通": "bg-yellow-100", "活動區": "bg-green-100", "事件": "bg-blue-100" };
-        const CONF_MAP = { "O": {s:"✔",c:"bg-green-500 text-white"}, "X": {s:"✘",c:"bg-red-500 text-white"}, "TBD": {s:"△",c:"bg-yellow-400 text-gray-800"} };
-
-        const renderItineraryTable = (itin, name) => {
-            document.getElementById('input-form-section').classList.add('hidden');
-            document.getElementById('itinerary-table-section').classList.remove('hidden');
-            document.getElementById('current-trip-name').textContent = name;
-
-            const tbody = document.getElementById('itinerary-body');
+        // --- 渲染 ---
+        function renderTable() {
             tbody.innerHTML = '';
-            
-            const pDates = new Set();
-            const rSpans = {};
-            itin.forEach(i => { rSpans[i.date] = (rSpans[i.date]||0) + 1; });
+            displayYear.textContent = currentYear;
+            displayMonth.textContent = currentMonth + 1;
 
-            itin.forEach((item, idx) => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                if (!pDates.has(item.date) && idx > 0) tr.classList.add('new-day-border-top');
+            const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+            const statusMap = calculateStatusMap(currentYear, currentMonth);
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(currentYear, currentMonth, d);
+                const dayOfWeek = weekDays[date.getDay()];
+                const status = statusMap[d];
+                const dateKey = getDateKey(date);
                 
-                if (!pDates.has(item.date)) {
-                    tr.innerHTML += `<td rowspan="${rSpans[item.date]}" class="date-cell px-2 py-4 text-sm font-medium text-center border-r border-gray-200 bg-white sticky-col">${item.date.slice(5)}<br>${item.dayOfWeek}<br>(Day ${item.dayNum})</td>`;
-                    pDates.add(item.date);
+                const tr = document.createElement('tr');
+                if (status === 'REST') {
+                    tr.classList.add('holiday-row');
                 }
 
-                const catC = CAT_MAP[item.category] || 'bg-white';
-                const conf = CONF_MAP[item.confirmation] || CONF_MAP["TBD"];
+                // 日期
+                const tdDate = document.createElement('td');
+                tdDate.textContent = d;
+                tdDate.className = "cursor-pointer hover:bg-gray-200 select-none";
+                tdDate.title = "點擊切換假日";
+                tdDate.onclick = () => toggleHoliday(d);
+                tr.appendChild(tdDate);
 
-                tr.innerHTML += `
-                    <td class="px-3 py-4 text-sm relative location-cell-wrapper group">
-                         <div class="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 row-controls z-10">
-                            <button onclick="window.insertRow(${idx}, 'before')" class="text-blue-600 bg-blue-100 p-1 rounded hover:bg-blue-300">▲</button>
-                            <button onclick="window.insertRow(${idx}, 'after')" class="text-blue-600 bg-blue-100 p-1 rounded hover:bg-blue-300">▼</button>
-                        </div>
-                        <div class="flex items-start">
-                            <div class="editable-cell flex-grow pl-6 p-2 border border-gray-300 rounded min-h-[2.5rem] ${catC}" contenteditable="true" data-field="location" data-index="${idx}">${item.location}</div>
-                            <button onclick="window.showCategoryMenu(${idx}, this)" class="ml-1 p-1 bg-gray-100 rounded-full hover:bg-blue-200">🏷️</button>
-                            <button onclick="window.deleteRow(${idx})" class="ml-1 p-1 bg-red-50 text-red-400 rounded-full hover:bg-red-200">✕</button>
-                        </div>
-                    </td>
-                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="departureTime" data-index="${idx}">${item.departureTime}</div></td>
-                    <td class="px-3 py-4 text-sm w-24 thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost1" data-index="${idx}">${item.cost1}</div></td>
-                    <td class="px-3 py-4 text-sm w-24"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="cost2" data-index="${idx}">${item.cost2}</div></td>
-                    <td class="px-3 py-4 text-center w-16 thick-border-left"><button onclick="window.showConfirmationMenu(${idx}, this)" class="w-full h-8 font-bold rounded ${conf.c}">${conf.s}</button></td>
-                    <td class="px-3 py-4 text-sm thick-border-left"><div class="editable-cell p-2 border rounded bg-white" contenteditable="true" data-field="remark" data-index="${idx}">${item.remark}</div></td>
-                `;
+                // 星期
+                const tdWeek = document.createElement('td');
+                tdWeek.textContent = dayOfWeek;
+                tdWeek.className = "cursor-pointer hover:bg-gray-200 select-none";
+                tdWeek.onclick = () => toggleHoliday(d);
+                if (dayOfWeek === '日' || dayOfWeek === '六' || status === 'REST') {
+                    tdWeek.classList.add('text-red-500', 'font-bold');
+                }
+                tr.appendChild(tdWeek);
+
+                // 檢查項目欄位
+                for (let i = 0; i < 7; i++) {
+                    const td = document.createElement('td');
+                    const cellKey = `${dateKey}-c${i}`;
+                    
+                    let defaultContent = "";
+                    if (status === 'REST') defaultContent = "休";
+                    else if (status === 'CHECK') defaultContent = "O";
+                    else defaultContent = "-";
+
+                    const userVal = customValues[cellKey];
+                    const finalVal = userVal !== undefined ? userVal : defaultContent;
+
+                    const input = document.createElement('input');
+                    input.type = "text";
+                    input.value = finalVal;
+                    
+                    if (finalVal === 'O') input.classList.add('font-bold', 'text-green-700', 'text-lg');
+                    if (finalVal === '休') input.classList.add('text-gray-400');
+                    if (finalVal === 'X') input.classList.add('text-red-600', 'font-bold', 'text-lg');
+
+                    input.onchange = (e) => {
+                        customValues[cellKey] = e.target.value;
+                        saveData();
+                        takeSnapshot();
+                        renderTable(); 
+                    };
+
+                    td.appendChild(input);
+                    tr.appendChild(td);
+                }
+
+                // 備註欄
+                const tdRemark = document.createElement('td');
+                const remarkKey = `${dateKey}-remark`;
+                const remarkInput = document.createElement('input');
+                remarkInput.type = "text";
+                remarkInput.value = customValues[remarkKey] || "";
+                remarkInput.onchange = (e) => {
+                    customValues[remarkKey] = e.target.value;
+                    saveData();
+                    takeSnapshot();
+                };
+                tdRemark.appendChild(remarkInput);
+                tr.appendChild(tdRemark);
+
                 tbody.appendChild(tr);
+            }
+        }
+
+        // --- 儲存與讀取 ---
+        function saveData(isUserAction = true) {
+            const data = {
+                manualHolidays,
+                customValues,
+                inspector: inspectorName.value,
+                area: areaName.value,
+                lastYear: currentYear,
+                lastMonth: currentMonth
+            };
+            localStorage.setItem('fireChecklistData', JSON.stringify(data));
+            if (isUserAction) takeSnapshot();
+        }
+
+        function loadData() {
+            const raw = localStorage.getItem('fireChecklistData');
+            if (raw) {
+                const data = JSON.parse(raw);
+                manualHolidays = data.manualHolidays || {};
+                customValues = data.customValues || {};
+                inspectorName.value = data.inspector || "";
+                areaName.value = data.area || "辦公區域";
+                if(data.lastYear !== undefined && data.lastMonth !== undefined) {
+                    yearInput.value = data.lastYear;
+                    monthInput.value = data.lastMonth;
+                    currentYear = data.lastYear;
+                    currentMonth = data.lastMonth;
+                }
+            }
+        }
+
+        function resetData() {
+            if(confirm("確定要清除本月所有的手動修改紀錄嗎？")) {
+                const prefix = `${currentYear}-${(currentMonth+1).toString().padStart(2,'0')}`;
+                for (let key in customValues) {
+                    if (key.startsWith(prefix)) delete customValues[key];
+                }
+                for (let key in manualHolidays) {
+                    if (key.startsWith(prefix)) delete manualHolidays[key];
+                }
+                saveData();
+                takeSnapshot();
+                renderTable();
+            }
+        }
+
+        // --- 匯出 JPG ---
+        function exportToImage() {
+            const element = document.getElementById('captureArea');
+            const inputs = element.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.setAttribute('data-val', input.value);
+                input.setAttribute('value', input.value);
             });
 
-            document.querySelectorAll('.editable-cell').forEach(c => c.addEventListener('blur', window.handleCellEdit));
-        };
-
-        window.showCategoryMenu = (idx, btn) => {
-            const pop = document.getElementById('global-category-popover');
-            pop.innerHTML = Object.entries(CAT_MAP).map(([k,v]) => `<button onclick="window.selectCategory(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:opacity-80 ${v}">${k}</button>`).join('') + `<button onclick="window.selectCategory(${idx}, '')" class="w-full text-left px-4 py-2 text-red-500">清除</button>`;
-            const r = btn.getBoundingClientRect();
-            pop.style.top = (r.top + window.scrollY) + 'px'; pop.style.left = (r.right + 10) + 'px';
-            pop.classList.remove('hidden');
-        };
-
-        window.showConfirmationMenu = (idx, btn) => {
-            const pop = document.getElementById('global-confirmation-popover');
-            pop.innerHTML = Object.entries(CONF_MAP).map(([k,v]) => `<button onclick="window.selectConfirmation(${idx}, '${k}')" class="w-full text-left px-4 py-2 hover:bg-gray-100 ${v.c}">${v.s} ${k}</button>`).join('');
-            const r = btn.getBoundingClientRect();
-            pop.style.top = (r.top + window.scrollY) + 'px'; pop.style.left = (r.left - 130) + 'px';
-            pop.classList.remove('hidden');
-        };
-        
-        document.addEventListener('click', (e) => {
-             if(!e.target.closest('button')) {
-                 document.getElementById('global-category-popover').classList.add('hidden');
-                 document.getElementById('global-confirmation-popover').classList.add('hidden');
-             }
-        });
-
-        window.handleManualDateInput = (val, id) => { document.getElementById(id).value = val.replace(/\//g,'-'); };
-        window.showCalendar = (id) => { 
-             const val = prompt("請輸入日期 (YYYY-MM-DD):", document.getElementById(id).value || new Date().toISOString().split('T')[0]);
-             if(val) { document.getElementById(id).value = val; document.getElementById(id+'Display').value = val; }
-        };
-
-        window.exportToJPG = () => { 
-            html2canvas(document.getElementById("capture-area"), { useCORS: true }).then(canvas => {
-                const a = document.createElement("a"); a.href = canvas.toDataURL("image/jpeg"); a.download = "plan.jpg"; a.click();
+            html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff"
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `檢查表_${currentYear}_${currentMonth+1}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+                link.click();
             });
-        };
-        window.exportToCSV = () => { confirm("CSV 功能暫時隱藏"); }; 
+        }
+
+        // 啟動
+        init();
 
     </script>
 </body>
